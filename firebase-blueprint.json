@@ -1,0 +1,242 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Token": {
+      "title": "Token",
+      "description": "OAuth credentials for ad platforms",
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string", "enum": ["meta", "google", "tiktok"] },
+        "accessToken": { "type": "string" },
+        "refreshToken": { "type": "string" },
+        "expiresAt": { "type": "integer" },
+        "scope": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["platform", "accessToken", "updatedAt"]
+    },
+    "AdAccount": {
+      "title": "Ad Account",
+      "description": "A linked ad account from a platform",
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string", "enum": ["meta", "google", "tiktok"] },
+        "accountId": { "type": "string" },
+        "accountName": { "type": "string" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" },
+        "lastSyncedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["platform", "accountId", "accountName"]
+    },
+    "Insight": {
+      "title": "Intelligence Insight",
+      "description": "AI-generated insight about performance or market",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["performance", "market", "diagnosis"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+        "source": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "title", "content", "createdAt"]
+    },
+    "ActivityLog": {
+      "title": "Optimization Activity",
+      "description": "Log of actions taken by the AI or user",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["success", "failed", "pending"] },
+        "performedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "status", "timestamp"]
+    },
+    "Alert": {
+      "title": "Performance Alert",
+      "description": "System-generated alert for performance anomalies",
+      "type": "object",
+      "properties": {
+        "workspace_id": { "type": "string" },
+        "campaign_id": { "type": "string" },
+        "type": { "type": "string", "enum": ["CTR_DROP", "CPA_INCREASE", "SPEND_SPIKE"] },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "details": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["workspace_id", "type", "severity", "status", "created_at"]
+    },
+    "Workspace": {
+      "title": "Workspace",
+      "description": "Collaborative environment for ad management",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "integrations": {
+          "type": "object",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "properties": {
+                "active": { "type": "boolean" },
+                "ad_account_id": { "type": "string" },
+                "access_token": { "type": "string" }
+              }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "ownerId", "integrations", "createdAt"]
+    },
+    "WorkspaceMember": {
+      "title": "Workspace Member",
+      "description": "A user with a specific role in a workspace",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "media_buyer", "analyst"] },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "addedAt"]
+    },
+    "ABTest": {
+      "title": "A/B Test",
+      "description": "Performance comparison between ad variants",
+      "type": "object",
+      "properties": {
+        "test_type": { "type": "string", "enum": ["hook", "creative", "audience"] },
+        "variants": { "type": "array", "items": { "type": "object" } },
+        "winner_id": { "type": "string" },
+        "performance_summary": { "type": "object" },
+        "status": { "type": "string", "enum": ["active", "concluded"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["test_type", "variants", "status", "created_at"]
+    },
+    "CreativeIntelligence": {
+      "title": "Creative Intelligence",
+      "description": "Analysis of creative performance and fatigue",
+      "type": "object",
+      "properties": {
+        "ad_id": { "type": "string" },
+        "creative_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "fatigue_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "hooks_analysis": { "type": "string" },
+        "visual_patterns": { "type": "array", "items": { "type": "string" } },
+        "improvement_suggestions": { "type": "array", "items": { "type": "string" } },
+        "frequency": { "type": "number" },
+        "analyzed_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ad_id", "creative_score", "fatigue_score", "analyzed_at"]
+    },
+    "AdSpyResult": {
+      "title": "Ad Spy Result",
+      "description": "Results from competitor ad spying",
+      "type": "object",
+      "properties": {
+        "query": { "type": "string" },
+        "platform": { "type": "string", "enum": ["meta", "tiktok", "google"] },
+        "ads": { "type": "array", "items": { "type": "object" } },
+        "trends": { "type": "array", "items": { "type": "string" } },
+        "scraped_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["query", "platform", "ads", "scraped_at"]
+    },
+    "IntelligenceReport": {
+      "title": "Marketing Intelligence Report",
+      "description": "Comprehensive 9-pillar intelligence report for a domain",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "domainAnalysis": { "type": "object" },
+        "trafficEstimation": { "type": "object" },
+        "keywords": { "type": "object" },
+        "competitors": { "type": "object" },
+        "adsIntelligence": { "type": "object" },
+        "marketAnalysis": { "type": "object" },
+        "backlinks": { "type": "object" },
+        "funnel": { "type": "object" },
+        "strategy": { "type": "object" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["url", "status", "createdAt", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile and settings"
+    },
+    "/users/{userId}/tokens/{platform}": {
+      "schema": { "$ref": "#/entities/Token" },
+      "description": "OAuth tokens for each platform"
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/AdAccount" },
+      "description": "Connected ad accounts"
+    },
+    "/users/{userId}/insights/{insightId}": {
+      "schema": { "$ref": "#/entities/Insight" },
+      "description": "Intelligence insights for the user"
+    },
+    "/users/{userId}/activity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "History of system and user actions"
+    },
+    "/users/{userId}/intelligence_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/IntelligenceReport" },
+      "description": "Full marketing intelligence reports"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "type": "object" },
+      "description": "User specific settings (e.g. AI preferences)"
+    },
+    "/workspaces/{workspaceId}": {
+      "schema": { "$ref": "#/entities/Workspace" },
+      "description": "Workspace settings and integrations"
+    },
+    "/workspaces/{workspaceId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/WorkspaceMember" },
+      "description": "Members and their roles within the workspace"
+    },
+    "/workspaces/{workspaceId}/alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/Alert" },
+      "description": "Performance alerts for the workspace"
+    },
+    "/workspaces/{workspaceId}/tests/{testId}": {
+      "schema": { "$ref": "#/entities/ABTest" },
+      "description": "A/B performance testing results"
+    },
+    "/workspaces/{workspaceId}/creative_intel/{intelId}": {
+      "schema": { "$ref": "#/entities/CreativeIntelligence" },
+      "description": "Creative analysis and fatigue data"
+    },
+    "/system_intel/ad_spy/results/{resultId}": {
+      "schema": { "$ref": "#/entities/AdSpyResult" },
+      "description": "Historical competitor ad spy results"
+    }
+  }
+}

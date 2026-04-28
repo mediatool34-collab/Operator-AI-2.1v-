@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Constants
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Users ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      
+      function isValidUser(data) {
+        return data.email is string && data.email.size() <= 256 &&
+               (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128) &&
+               (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 512) &&
+               data.createdAt is timestamp &&
+               data.updatedAt is timestamp;
+      }
+
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt']);
+    }
+
+    // --- User Tokens (Sensitive PII) ---
+    match /users/{userId}/tokens/{platform} {
+      allow get: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    // --- User Portfolio ---
+    match /users/{userId}/accounts/{accountId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    match /users/{userId}/insights/{insightId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    match /users/{userId}/activity_logs/{logId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+    }
+
+    match /users/{userId}/intelligence_reports/{reportId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    match /users/{userId}/settings/{settingId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // --- Workspaces (Collaborative) ---
+    match /workspaces/{workspaceId} {
+      function isWorkspaceMember() {
+        return exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+      }
+      function isWorkspaceOwner() {
+        return existing().ownerId == request.auth.uid;
+      }
+
+      allow get: if isWorkspaceMember() || isAdmin();
+      allow list: if isSignedIn(); // Filtered by userId on frontend usually, but let's be strict
+
+      allow create: if isSignedIn(); 
+      allow update: if isWorkspaceOwner() || isAdmin();
+      allow delete: if isWorkspaceOwner();
+    }
+
+    match /workspaces/{workspaceId}/members/{memberId} {
+      allow read: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+      allow write: if get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid;
+    }
+
+    match /workspaces/{workspaceId}/alerts/{alertId} {
+      allow read, write: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    match /workspaces/{workspaceId}/tests/{testId} {
+      allow read, write: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    match /workspaces/{workspaceId}/creative_intel/{intelId} {
+      allow read, write: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    // --- Global Intelligence (Public Read for users) ---
+    match /system_intel/ad_spy/results/{resultId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
