@@ -210,10 +210,6 @@
       "schema": { "$ref": "#/entities/IntelligenceReport" },
       "description": "Full marketing intelligence reports"
     },
-    "/users/{userId}/settings/{settingId}": {
-      "schema": { "type": "object" },
-      "description": "User specific settings (e.g. AI preferences)"
-    },
     "/workspaces/{workspaceId}": {
       "schema": { "$ref": "#/entities/Workspace" },
       "description": "Workspace settings and integrations"

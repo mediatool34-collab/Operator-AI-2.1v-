@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn, safeJson } from '../lib/utils';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { analyzeWithGemini } from '../lib/gemini';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
@@ -13,7 +14,7 @@ function formatCurrency(value: number) {
 
 export function Creatives() {
   const { user } = useAuth();
-  const { provider: aiProvider, manusMode } = useAiSettings();
+  const { provider: aiProvider } = useAiSettings();
   const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, platform, metaSubPlatform } = useFilters();
   const [creatives, setCreatives] = usePersistedState<any[]>('creatives_list', []);
   const [loading, setLoading] = useState(true);
@@ -177,22 +178,29 @@ Provide the output in Markdown format with the following sections:
 ### 📝 New Script / Ad Copy (1 complete, improved primary text)
 ### 🎨 Visual Ideas (2 concepts for the image/video)`;
 
-      const response = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
-        body: JSON.stringify({
-          prompt,
-          model: aiProvider
-        })
-      });
+      let aiResult = '';
+      
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, false);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({
+            prompt,
+            model: aiProvider
+          })
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
-      setGeneratedConcepts(prev => ({ ...prev, [creative.id]: data.result }));
+      setGeneratedConcepts(prev => ({ ...prev, [creative.id]: aiResult }));
     } catch (error: any) {
       console.error('Error generating concepts:', error);
       if (error.message?.includes('429') || error.message?.toLowerCase().includes('quota') || error.message?.toLowerCase().includes('limit')) {

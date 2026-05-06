@@ -15,6 +15,7 @@ import { scrapeWebsite } from '../services/scraper';
 import { useAuth } from '../lib/auth';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { cn } from '../lib/utils';
+import { analyzeWithGemini } from '../lib/gemini';
 
 interface IntelligenceReport {
   url: string;
@@ -137,7 +138,7 @@ interface IntelligenceReport {
 
 export function MarketIntelligence() {
   const { user } = useAuth();
-  const { provider: globalAiProvider, manusMode } = useAiSettings();
+  const { provider: globalAiProvider } = useAiSettings();
   const [url, setUrl] = useState('');
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -172,8 +173,6 @@ export function MarketIntelligence() {
         Generate a MASSIVE, HIGH-DENSITY, data-rich Digital Audit report for: ${targetUrl}.
         The tone must be FORMAL, OBJECTIVE, and ANALYTICAL. Use precise business terminology.
 
-        ${manusMode ? 'AGENTIC INSTRUCTION: You are in MANUS AI AUTONOMOUS MODE. Execute a high-dominance market takeover audit. Be ruthless in identifying weaknesses.' : ''}
-        
         CONTEXT:
         ${contextData.scrapeContent}
         ${contextData.semrush ? 'VERIFIED DATA (SEMrush): ' + JSON.stringify(contextData.semrush) : 'NO SEMRUSH DATA - USE PROBABILISTIC ESTIMATION'}
@@ -237,30 +236,34 @@ export function MarketIntelligence() {
         1. SEO AUDIT: You must identify specific signals for "alt text" and "broken pages" (e.g., "404 detected in /api/v1", "Missing alt tags on hero images").
         2. COMPETITORS: Find 5 real major competitors. For each rival, be specific about their "trafficVolume" (e.g., "1.2M sessions/mo") and "socialStrength" (e.g., "High - 4.2% engagement on IG"). Provide exactly 3-5 of their top keywords.
         3. TECHNICAL FINDINGS: Focus on infrastructure issues like "Fragmented Canonical Attribution" or "Core Web Vital: CLS Instability".
-        4. TONE: Senior Strategic Auditor (McKinsey/BCG level). Use FORMAL, OBJECTIVE, and HIGH-AUTHORITY BUSINESS ENGLISH. 
-        5. LANGUAGE: ALL OUTPUT MUST BE IN ENGLISH. DO NOT USE ARABIC.
+        4. TONE: Senior Strategic Auditor (McKinsey level). Use FORMAL and OBJECTIVE language.
       `;
 
-      // Perform AI analysis via backend
-      const response = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'x-user-id': userId 
-        },
-        body: JSON.stringify({
-          prompt,
-          model: globalAiProvider,
-          isJson: true
-        })
-      });
+      let aiResult = '';
       
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+      if (globalAiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, true);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': userId
+          },
+          body: JSON.stringify({
+            prompt,
+            model: globalAiProvider || 'gemini'
+          })
+        });
+        
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
-      if (!data.result) throw new Error('AI failed to generate a response.');
+      if (!aiResult) throw new Error('AI failed to generate a response.');
 
-      let cleanJsonStr = data.result.trim();
+      let cleanJsonStr = aiResult.trim();
       const firstBrace = cleanJsonStr.indexOf('{');
       const lastBrace = cleanJsonStr.lastIndexOf('}');
       if (firstBrace !== -1 && lastBrace !== -1) {
@@ -641,13 +644,10 @@ function OverviewTab({ report }: { report: IntelligenceReport }) {
                   />
                   <Radar
                     name="Benchmark"
-                    dataKey="subject"
+                    dataKey="B"
                     stroke="#6366f1"
                     fill="#6366f1"
                     fillOpacity={0.2}
-                    data={[
-                      { A: 60 }, { A: 60 }, { A: 60 }, { A: 60 }, { A: 60 }
-                    ]}
                   />
                 </RadarChart>
               </ResponsiveContainer>

@@ -1,109 +1,220 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny catch-all
+    
+    // ==========================================
+    // GLOBAL HELPERS
+    // ==========================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userId() {
+      return request.auth.uid;
+    }
+
+    function emailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ==========================================
+    // RBAC HELPERS
+    // ==========================================
+    
+    // Fetches the member record for the current user in a specific workspace
+    function getMemberDoc(workspaceId) {
+      return get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId())).data;
+    }
+
+    function isWorkspaceMember(workspaceId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId()));
+    }
+
+    function getRole(workspaceId) {
+      return getMemberDoc(workspaceId).role;
+    }
+
+    function hasAdminRole(workspaceId) {
+      return isWorkspaceMember(workspaceId) && getRole(workspaceId) == 'admin';
+    }
+
+    function hasMediaBuyerRole(workspaceId) {
+      return isWorkspaceMember(workspaceId) && (getRole(workspaceId) == 'admin' || getRole(workspaceId) == 'media_buyer');
+    }
+
+    function hasAnalystRole(workspaceId) {
+      return isWorkspaceMember(workspaceId); // All members have analyst (view) capabilities
+    }
+
+    function isWorkspaceOwner(workspaceId) {
+      return isSignedIn() && get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == userId();
+    }
+
+    // ==========================================
+    // DEFAULT DENY
+    // ==========================================
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Global Constants
-    function isSignedIn() { return request.auth != null; }
-    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$'); }
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-
-    // --- Users ---
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+    // ==========================================
+    // USERS COLLECTION
+    // ==========================================
+    match /users/{uid} {
+      allow get: if isSignedIn() && (userId() == uid);
+      allow list: if false; 
       
-      function isValidUser(data) {
-        return data.email is string && data.email.size() <= 256 &&
-               (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128) &&
-               (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 512) &&
-               data.createdAt is timestamp &&
-               data.updatedAt is timestamp;
+      allow create: if isSignedIn() && userId() == uid 
+                    && isValidUser(incoming())
+                    && incoming().createdAt is timestamp;
+      
+      allow update: if isSignedIn() && userId() == uid 
+                    && (incoming().updatedAt is timestamp)
+                    && isValidUserUpdate(incoming());
+
+      match /tokens/{platform} {
+        allow get, list: if isSignedIn() && userId() == uid;
+        allow create, update: if isSignedIn() && userId() == uid 
+                     && (platform in ['meta', 'google', 'tiktok', 'snapchat'])
+                     && isValidToken(incoming());
+        allow delete: if isSignedIn() && userId() == uid;
       }
 
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
-      allow update: if isOwner(userId) && isValidUser(incoming()) && 
-                    incoming().createdAt == existing().createdAt &&
-                    incoming().updatedAt == request.time &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt']);
+      match /settings/{settingId} {
+        allow get, list, create, update, delete: if isSignedIn() && userId() == uid;
+      }
+
+      match /intelligence_reports/{reportId} {
+        allow read: if isSignedIn() && (userId() == uid);
+        allow create: if isSignedIn() && userId() == uid && isValidReport(incoming());
+        allow update: if isSignedIn() && userId() == uid && isValidReport(incoming());
+        allow delete: if isSignedIn() && userId() == uid;
+      }
     }
 
-    // --- User Tokens (Sensitive PII) ---
-    match /users/{userId}/tokens/{platform} {
-      allow get: if isOwner(userId);
-      allow create, update, delete: if isOwner(userId);
+    function isValidToken(data) {
+      return data.accessToken is string 
+          && data.accessToken.size() > 0 
+          && data.accessToken.size() <= 32768
+          && (data.get('platform', null) == null || (data.platform is string && data.platform.size() <= 100))
+          && (data.get('refreshToken', null) == null || (data.refreshToken is string && data.refreshToken.size() <= 32768))
+          && data.updatedAt is timestamp;
     }
 
-    // --- User Portfolio ---
-    match /users/{userId}/accounts/{accountId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+    function isValidReport(data) {
+      return data.url is string && data.url.size() <= 2048
+          && data.status in ['pending', 'completed', 'failed']
+          && data.userId == request.auth.uid
+          && data.createdAt is timestamp;
     }
 
-    match /users/{userId}/insights/{insightId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+    function isValidUser(data) {
+      return data.email is string && data.email.size() <= 255
+          && (data.get('displayName', null) == null || (data.displayName is string && data.displayName.size() <= 256))
+          && (data.get('photoURL', null) == null || (data.photoURL is string && data.photoURL.size() <= 2048))
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
     }
 
-    match /users/{userId}/activity_logs/{logId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId);
+    function isValidUserUpdate(data) {
+      return data.email is string && data.email.size() <= 255
+          && (data.get('displayName', null) == null || (data.displayName is string && data.displayName.size() <= 256))
+          && (data.get('photoURL', null) == null || (data.photoURL is string && data.photoURL.size() <= 2048))
+          && data.updatedAt is timestamp;
     }
 
-    match /users/{userId}/intelligence_reports/{reportId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
-    }
-
-    match /users/{userId}/settings/{settingId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // --- Workspaces (Collaborative) ---
+    // ==========================================
+    // WORKSPACES COLLECTION
+    // ==========================================
     match /workspaces/{workspaceId} {
-      function isWorkspaceMember() {
-        return exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+      allow get: if isWorkspaceMember(workspaceId);
+      allow list: if isSignedIn();
+      
+      allow create: if isSignedIn() && isValidWorkspace(incoming()) && incoming().ownerId == userId();
+      
+      allow update: if (isWorkspaceOwner(workspaceId) || hasAdminRole(workspaceId)) 
+                    && isValidWorkspace(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'integrations', 'updatedAt']);
+
+      allow delete: if isWorkspaceOwner(workspaceId);
+
+      // Ads subcollection (Missing in previous version)
+      match /ads/{adId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow write: if hasMediaBuyerRole(workspaceId);
       }
-      function isWorkspaceOwner() {
-        return existing().ownerId == request.auth.uid;
+
+      // Workspace Members subcollection
+      match /members/{memberId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        
+        allow create: if (isWorkspaceOwner(workspaceId) || hasAdminRole(workspaceId)) 
+                      && isValidMember(incoming());
+        
+        allow update: if hasAdminRole(workspaceId) 
+                      && isValidMember(incoming())
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['role']);
+                      
+        allow delete: if hasAdminRole(workspaceId) && memberId != userId(); 
       }
 
-      allow get: if isWorkspaceMember() || isAdmin();
-      allow list: if isSignedIn(); // Filtered by userId on frontend usually, but let's be strict
+      // Alerts subcollection
+      match /alerts/{alertId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow write: if hasMediaBuyerRole(workspaceId); 
+      }
 
-      allow create: if isSignedIn(); 
-      allow update: if isWorkspaceOwner() || isAdmin();
-      allow delete: if isWorkspaceOwner();
+      // AB Tests subcollection
+      match /tests/{testId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if hasMediaBuyerRole(workspaceId);
+        allow update: if hasMediaBuyerRole(workspaceId)
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'winner_id', 'performance_summary']);
+      }
+
+      // Creative Intelligence subcollection
+      match /creative_intel/{intelId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow write: if hasMediaBuyerRole(workspaceId);
+      }
     }
 
-    match /workspaces/{workspaceId}/members/{memberId} {
-      allow read: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
-      allow write: if get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid;
+    function isValidWorkspace(data) {
+      return data.name is string && data.name.size() <= 100
+          && isValidId(data.ownerId)
+          && data.createdAt is timestamp;
     }
 
-    match /workspaces/{workspaceId}/alerts/{alertId} {
-      allow read, write: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    function isValidMember(data) {
+      return isValidId(data.userId)
+          && data.role in ['admin', 'media_buyer', 'analyst']
+          && data.addedAt is timestamp;
     }
 
-    match /workspaces/{workspaceId}/tests/{testId} {
-      allow read, write: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
-    }
-
-    match /workspaces/{workspaceId}/creative_intel/{intelId} {
-      allow read, write: if exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
-    }
-
-    // --- Global Intelligence (Public Read for users) ---
+    // ==========================================
+    // SYSTEM INTELLIGENCE
+    // ==========================================
     match /system_intel/ad_spy/results/{resultId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if false; 
+    }
+
+    // Catch-all for other system-level paths if accessed by mistake
+    match /system_intel/{any=**} {
+      allow read, write: if false;
     }
   }
 }

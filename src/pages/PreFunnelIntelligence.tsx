@@ -12,11 +12,12 @@ import { useAuth } from '../lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { analyzeWithGemini } from '../lib/gemini';
 
 type TabType = 'analysis' | 'competitors' | 'trends' | 'funnel' | 'creative' | 'roadmap';
 
 export function PreFunnelIntelligence() {
-  const { provider: aiProvider, manusMode } = useAiSettings();
+  const { provider: aiProvider } = useAiSettings();
   const [url, setUrl] = usePersistedState('pre_funnel_url', '');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = usePersistedState<TabType>('pre_funnel_active_tab', 'analysis');
@@ -53,7 +54,7 @@ export function PreFunnelIntelligence() {
     setLoading(true);
     setError(null);
     setStrategy(null);
-    setAnalysisStep('Initiating tactical audit...');
+    setAnalysisStep('جاري بدء الفحص التكتيكي...');
     
     try {
       setAnalysisStep('Surveying market ecosystem...');
@@ -78,23 +79,39 @@ export function PreFunnelIntelligence() {
 
       setAnalysisStep('Generating tactical funnel blueprint...');
 
-      // 2. ANALYZE via Backend
+      // 2. ANALYZE
       const prompt = `
-        Act as a SENIOR STRATEGIC ANALYST (McKinsey/BCG level). 
-        Analyze the following business content for ${url}:
+        Act as a SENIOR STRATEGIC ANALYST & GROWTH ARCHITECT (McKinsey/BCG level). 
+        Your mission is to perform a DEEP-DIVE forensic analysis of the business at ${url}.
         
+        DATA SOURCE:
         ${scrapeData.content}
 
-        ${manusMode ? 'AGENTIC INSTRUCTION: You are in MANUS AI AUTONOMOUS MODE. Execute a high-dominance market takeover audit. Be ruthless in identifying weaknesses.' : ''}
+        INSTRUCTIONS:
+        1. **Competitor Intel**: Do NOT return generic competitors. Identify at least 3-5 REAL competitors in this specific niche. 
+           - Designate a "Top Competitor" and provide a detailed 'topCompetitorRationale' explaining exactly WHY they are leading the market (e.g., superior ad hooks, better pricing psychology, faster delivery, higher trust signals).
+           - Identify specific "Gaps" you can exploit.
+        2. **Market Trends**: Provide credible, data-backed trends. What is actually working in this niche's ad creative right now? (e.g., "Problem-Solution UGC", "Founder Story", "Side-by-side comparison").
+        3. **Funnel Strategy**: This MUST BE UNIQUE. Do not use the same strategy for every business. 
+           - **strategy**: A 2-3 sentence high-level tactical approach for this funnel stage.
+           - **adSetDetails**: Detailed targeting instructions (interests, lookalikes, behaviors).
+           - **creativeBreakdown**: Exactly what visual format to use (e.g., "UGC Testimonial", "Product Demo", "Problem/Solution Carousel").
+           - **contentCopy**: A complete, ready-to-use ad copy in Arabic.
+           - If it's Lead Gen, focus on friction vs. volume. 
+           - If it's E-commerce, focus on AOV and LTV.
+           - Budget Rationale: Explain the budget based on the specific industry benchmarks for ${url}.
+        4. **Execution Roadmap**: Focus on specific, high-impact tactical fixes.
 
-        Return a COMPREHENSIVE tactics and funnel strategy in valid JSON format.
+        RETURN A COMPREHENSIVE tactics and funnel strategy in valid JSON format.
         
-        REQUIRED SCHEMA:
+        REQUIRED SCHEMA (STRICT):
         {
           "businessSummary": { "name": string, "productType": string, "offer": string, "messaging": string, "visualQuality": string, "targetAudience": string, "marketPositioning": string, "brandStrength": string, "priceLevel": string },
           "executiveSummary": { "keyUnlock": string, "theTruth": string, "scaleOpportunity": string },
           "detectedProblems": Array<{ issue: string, description: string, severity: "Critical" | "High" | "Medium" }>,
           "competitorInsights": {
+            "topCompetitorName": string,
+            "topCompetitorRationale": string,
             "tier1": Array<{ name: string, priceRange: string, adActivity: string, weakness: string, primaryContent: string, topHooks: string[], gap: string }>,
             "marketBroad": Array<{ name: string, priceRange: string, adActivity: string }>
           },
@@ -105,34 +122,79 @@ export function PreFunnelIntelligence() {
               "standaloneMonthlyBudget": string,
               "budgetRationale": string,
               "marketCompetitiveBasis": string,
-              "tof": { "objective": string, "creativeType": string, "hooks": string[], "targeting": string },
-              "mof": { "objective": string, "creativeType": string, "hooks": string[], "targeting": string },
-              "bof": { "objective": string, "creativeType": string, "hooks": string[], "targeting": string }
+              "tof": { 
+                "strategy": string, 
+                "adSetDetails": string, 
+                "creativeBreakdown": string[], 
+                "contentCopy": string, 
+                "hooks": string[],
+                "monthlyAmount": string,
+                "budgetPercentWithinPlatform": number,
+                "campaignSetup": string,
+                "adSetCount": number,
+                "adsPerSet": number,
+                "rationale": string
+              },
+              "mof": { 
+                "strategy": string, 
+                "adSetDetails": string, 
+                "creativeBreakdown": string[], 
+                "contentCopy": string, 
+                "hooks": string[],
+                "monthlyAmount": string,
+                "budgetPercentWithinPlatform": number,
+                "campaignSetup": string,
+                "adSetCount": number,
+                "adsPerSet": number,
+                "rationale": string
+              },
+              "bof": { 
+                "strategy": string, 
+                "adSetDetails": string, 
+                "creativeBreakdown": string[], 
+                "contentCopy": string, 
+                "hooks": string[],
+                "monthlyAmount": string,
+                "budgetPercentWithinPlatform": number,
+                "campaignSetup": string,
+                "adSetCount": number,
+                "adsPerSet": number,
+                "rationale": string
+              }
             }>
           },
-          "creativeAndAdvantage": { "uniqueAngle": string, "contentPillars": string[], "brandVoice": string }
+          "creativeAndAdvantage": { "uniqueAngle": string, "contentPillars": string[], "brandVoice": string, "howToOutperform": string, "primaryHooks": string[], "visualScripts": string[] },
+          "executionRoadmap": { "problemSolutions": Array<{ problem: string, solution: string }>, "targetAudienceDetails": { "description": string }, "campaignStrategy": { "upcomingTypes": Array<{ type: string, objective: string }> } }
         }
 
-        LANGUAGE MUST BE PROFESSIONAL MARKETING ENGLISH.
+        LANGUAGE: PROFESSIONAL MODERN MARKETING ARABIC (Mix of Arabic and essential English terms).
+        Avoid generic fluff. Be technical and actionable.
       `;
 
-      const response = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
-        body: JSON.stringify({
-          prompt,
-          model: aiProvider
-        })
-      });
+      let aiResult = '';
+      
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, true);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({
+            prompt,
+            model: aiProvider
+          })
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
       setAnalysisStep('Finalizing tactical funnel blueprint...');
-      const parsedStrategy = JSON.parse(data.result);
+      const parsedStrategy = JSON.parse(aiResult);
       
       setStrategy(parsedStrategy);
       setLastAnalyzedAt(Date.now());
@@ -155,42 +217,51 @@ export function PreFunnelIntelligence() {
     
     setGeneratingRoadmap(true);
     try {
-      const prompt = `Based on the following business analysis for ${url}:
+      const prompt = `Act as an ELITE GROWTH STRATEGIST. Based on the following business analysis for ${url}:
       Business Summary: ${JSON.stringify(strategy.businessSummary)}
       Detected Problems: ${JSON.stringify(strategy.detectedProblems)}
       Competitor Intelligence: ${JSON.stringify(strategy.competitorInsights)}
+      Funnel Strategy: ${JSON.stringify(strategy.funnelStrategy)}
       
-      ${manusMode ? 'AGENTIC INSTRUCTION: You are in MANUS AI AUTONOMOUS MODE. Execute a high-dominance market takeover strategy.' : ''}
-
-      Generate a complete, professional 3-month growth strategy. 
-      LANGUAGE: Professional Marketing English.
-      Breakdown the strategy month by month (Month 1, Month 2, Month 3). 
-      Include:
-      1. Main objectives for each month.
-      2. Specific campaign structures.
-      3. Content and creative requirements.
-      4. KPI targets and expectations.
-      5. Scaling roadmap.
+      Generate a professional, high-performance 90-day execution roadmap.
       
-      Format the response in clear Markdown with headings and bullet points. Be extremely tactical and specific to this niche.`;
+      INSTRUCTIONS:
+      1. This plan must be HYPER-SPECIFIC to the business at ${url}. Do not give generic advice like "create good content".
+      2. Breakdown the strategy into 3 distinct phases (Month 1: Foundation & Fixes, Month 2: Optimization & Velocity, Month 3: Scale & Dominance).
+      3. For each month, include:
+         - Core Strategic Focus (The "North Star" for that month).
+         - Tactical Tasks: Specific technical or creative fixes.
+         - Media Buying Plan: How the budget should shift or scale.
+         - Creative Briefs: Specific concepts for ads.
+         - Expected KPIs: Realistic growth targets based on the current state.
+      
+      LANGUAGE: Professional Modern Marketing Arabic (Mix of high-level Arabic and English business terminology).
+      Format: Clean Markdown with bold headings and technical bullet points.`;
 
-      const roadmapResponse = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
-        body: JSON.stringify({
-          prompt,
-          model: aiProvider
-        })
-      });
+      let aiResult = '';
+      
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, false);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({
+            prompt,
+            model: aiProvider || 'gemini'
+          })
+        });
 
-      const roadmapData = await roadmapResponse.json();
-      if (roadmapData.error) throw new Error(roadmapData.error);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
-      if (roadmapData.result) {
-        setLongTermStrategy(roadmapData.result);
+      if (aiResult) {
+        setLongTermStrategy(aiResult);
       }
     } catch (err: any) {
       console.error('Error generating long term strategy:', err);
@@ -414,6 +485,32 @@ export function PreFunnelIntelligence() {
 
             {activeTab === 'competitors' && (
               <div className="space-y-12 animate-in fade-in duration-500">
+                {strategy?.competitorInsights?.topCompetitorName && (
+                  <div className="glass-panel p-8 rounded-[3rem] border-blue-500/30 bg-blue-500/10 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none"></div>
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="p-4 rounded-2xl bg-blue-500 text-white shadow-2xl">
+                          <Target className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h3 className="text-3xl font-black text-white leading-none mb-2">Top Market Hybrid: {strategy.competitorInsights.topCompetitorName}</h3>
+                          <p className="text-blue-400 font-bold uppercase tracking-widest text-xs">Strategic Benchmarking Analysis</p>
+                        </div>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-[#0B0F19]/50 border border-white/5">
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <Info className="w-4 h-4" />
+                          Why they are winning (The Rationale)
+                        </h4>
+                        <p className="text-lg text-gray-200 font-medium leading-relaxed italic text-right">
+                          {strategy.competitorInsights.topCompetitorRationale || "Detailed performance data locked."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div className="flex items-center justify-between mb-8">
                     <h2 className="text-2xl font-black text-white flex items-center gap-3">
@@ -669,21 +766,37 @@ export function PreFunnelIntelligence() {
                     <div className="glass-panel p-8 rounded-[2rem]">
                       <h2 className="text-2xl font-black text-white mb-8 flex items-center gap-3">
                         <Rocket className="w-6 h-6 text-emerald-400" />
-                        Execution Steps
+                        Execution Steps: Strategic Fixes
                       </h2>
-                      <div className="space-y-4">
-                        {strategy.executionRoadmap?.problemSolutions?.map((item: any, idx: number) => (
-                          <div key={idx} className="p-6 rounded-2xl bg-white/5 border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6 text-right">
-                             <div className="order-2 md:order-1">
-                              <h4 className="text-[10px] uppercase tracking-widest text-emerald-400 font-black mb-2 italic text-left">The Strategic Solution</h4>
-                              <p className="text-sm text-gray-300 leading-relaxed font-bold">{item.solution}</p>
+                      <div className="relative">
+                        <div className="absolute left-1/2 top-4 bottom-4 w-px bg-white/5 hidden md:block" />
+                        <div className="space-y-6">
+                          {strategy.executionRoadmap?.problemSolutions?.map((item: any, idx: number) => (
+                            <div key={idx} className="relative group">
+                              <div className="glass-panel p-8 rounded-3xl bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all text-right relative z-10">
+                                <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[10px] font-black text-emerald-400">
+                                  0{idx + 1}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                                  <div className="space-y-3 order-2 md:order-1 border-t md:border-t-0 md:border-r border-white/5 pt-4 md:pt-0 md:pr-8">
+                                    <h4 className="text-[10px] uppercase tracking-widest text-emerald-400 font-black mb-1 flex items-center gap-2 justify-end">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      Strategic Solution (الحل المقترح)
+                                    </h4>
+                                    <p className="text-white font-bold leading-relaxed">{item.solution}</p>
+                                  </div>
+                                  <div className="space-y-3 order-1 md:order-2">
+                                    <h4 className="text-[10px] uppercase tracking-widest text-red-400 font-black mb-1 flex items-center gap-2 justify-end">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      Critical Observation (الملاحظة)
+                                    </h4>
+                                    <p className="text-gray-400 font-medium leading-relaxed">{item.problem}</p>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="order-1 md:order-2 border-r border-white/5 pr-6">
-                              <h4 className="text-[10px] uppercase tracking-widest text-red-400 font-black mb-2 italic text-left">Technical Friction Point</h4>
-                              <p className="text-sm text-white font-medium">{item.problem}</p>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -692,7 +805,7 @@ export function PreFunnelIntelligence() {
                         <div className="flex items-center justify-between mb-8">
                           <h2 className="text-2xl font-black text-white flex items-center gap-3">
                             <Sparkles className="w-6 h-6 text-indigo-400" />
-                            3-Month Battle Plan
+                            3-Month Battle Plan (Arabic)
                           </h2>
                           <button onClick={handleGenerateLongTermStrategy} className="text-xs font-black text-indigo-400 uppercase">Regenerate</button>
                         </div>
@@ -821,22 +934,24 @@ function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: 
         <div className="space-y-8">
           <div className="space-y-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Core Phase Strategy</h4>
-            <p className="text-lg text-white font-bold leading-snug text-right">{data.strategy}</p>
+            <p className="text-lg text-white font-bold leading-snug text-right">{data.strategy || data.objective || 'Generating tactical foundation...'}</p>
           </div>
           
           <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4 text-left">Ad Set Targeting & Details</h4>
-            <p className="text-sm text-gray-300 leading-relaxed text-right italic">{data.adSetDetails}</p>
+            <p className="text-sm text-gray-300 leading-relaxed text-right italic">{data.adSetDetails || data.targeting || 'Identifying prime audience segments...'}</p>
           </div>
 
           <div className="space-y-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Creative Breakdown</h4>
             <div className="flex flex-wrap gap-2 justify-end text-right">
-              {data.creativeBreakdown?.map((crt: string, i: number) => (
+              {data.creativeBreakdown ? data.creativeBreakdown.map((crt: string, i: number) => (
                 <span key={i} className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300">
                   {crt}
                 </span>
-              ))}
+              )) : (
+                <span className="text-[10px] text-gray-500 italic">Formatting visual concepts...</span>
+              )}
             </div>
           </div>
         </div>
@@ -845,7 +960,7 @@ function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: 
           <div className="p-8 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 text-left">Winning Ad Copy (Localized)</h4>
             <div className="text-sm text-indigo-100 leading-relaxed font-bold bg-[#0B0F19]/50 p-6 rounded-2xl text-right">
-              {data.contentCopy}
+              {data.contentCopy || data.creativeType || 'Drafting high-conversion copy...'}
             </div>
           </div>
 
@@ -892,11 +1007,11 @@ function OpportunityButton({ title, desc, icon, color, onClick }: { title: strin
 
 function TrendSection({ title, items, icon, color }: { title: string, items: string[], icon: React.ReactNode, color: string }) {
   const colorClasses: Record<string, string> = {
-    blue: "text-blue-400 bg-blue-500/5 border-blue-500/10",
-    indigo: "text-indigo-400 bg-indigo-500/5 border-indigo-500/10",
-    pink: "text-pink-400 bg-pink-500/5 border-pink-500/10",
-    amber: "text-amber-400 bg-amber-500/5 border-amber-500/10",
-    purple: "text-purple-400 bg-purple-500/5 border-purple-500/10",
+    blue: "text-blue-400 bg-blue-500/5 border-blue-500/20",
+    indigo: "text-indigo-400 bg-indigo-500/5 border-indigo-500/20",
+    pink: "text-pink-400 bg-pink-500/5 border-pink-500/20",
+    amber: "text-amber-400 bg-amber-500/5 border-amber-500/20",
+    purple: "text-purple-400 bg-purple-500/5 border-purple-500/20",
   };
 
   const currentClass = colorClasses[color] || colorClasses.blue;
@@ -904,18 +1019,21 @@ function TrendSection({ title, items, icon, color }: { title: string, items: str
   const bgColor = textColor.replace('text-', 'bg-');
 
   return (
-    <div className="glass-panel p-8 rounded-[2rem] border-white/5">
-      <h3 className={cn("text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2", textColor)}>
-        {icon}
-        {title}
+    <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 bg-white/2 hover:bg-white/5 transition-all group overflow-hidden relative">
+      <div className={cn("absolute -top-12 -right-12 w-24 h-24 blur-[40px] opacity-20 pointer-events-none rounded-full", bgColor)}></div>
+      <h3 className={cn("text-[10px] font-black uppercase tracking-widest mb-8 flex items-center justify-between", textColor)}>
+        <span className="flex items-center gap-2">{icon} {title}</span>
+        <span className="px-2 py-0.5 rounded-full bg-white/5 text-[8px] border border-white/5">Verified Trend</span>
       </h3>
-      <div className="space-y-4">
-        {items?.map((item: string, idx: number) => (
-          <div key={idx} className="flex items-start gap-3 text-sm text-gray-300 font-medium">
-            <div className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0", bgColor)}></div>
-            {item}
+      <div className="space-y-4 text-right">
+        {items?.length > 0 ? items?.map((item: string, idx: number) => (
+          <div key={idx} className="flex flex-row-reverse items-start gap-4 p-4 rounded-2xl bg-[#0B0F19]/40 border border-white/5 group-hover:border-white/10 transition-all">
+            <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0 shadow-[0_0_10px_currentColor]", textColor, bgColor)}></div>
+            <p className="text-sm text-gray-200 font-bold leading-relaxed">{item}</p>
           </div>
-        ))}
+        )) : (
+          <div className="text-center py-8 opacity-40 italic text-xs">No specific trends detected for this segment.</div>
+        )}
       </div>
     </div>
   );

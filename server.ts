@@ -446,19 +446,11 @@ async function startServer() {
 
   // Middlewares
   const authenticateUser = (req: any, res: any, next: any) => {
-    // Skip auth for OPTIONS requests
-    if (req.method === 'OPTIONS') return next();
-
     // Skip auth for health and OAuth routes
-    // When using app.use('/api', ...), req.path is relative to /api
-    const path = req.path;
-    if (path === '/health' || path === '/api/health' || path.includes('/auth/callback') || path.includes('/auth/connect')) return next();
+    if (req.path === '/api/health' || req.path.includes('/auth/callback') || req.path.includes('/auth/connect')) return next();
     
     const userId = req.headers['x-user-id'];
-    if (!userId) {
-      console.warn(`[Auth] Missing x-user-id for path: ${req.method} ${req.originalUrl}`);
-      return res.status(401).json({ error: 'Unauthorized: Missing User ID' });
-    }
+    if (!userId) return res.status(401).json({ error: 'Unauthorized: Missing User ID' });
     req.userId = userId;
     next();
   };
@@ -662,18 +654,27 @@ async function startServer() {
     try {
       const intelService = IntelligenceService.getInstance();
       
-      // If we're in Smart mode/Manus mode, use collaborative logic
-      // Otherwise fallback to whatever was requested
-      let result;
-      if (!model || model === 'gemini') {
-        result = await intelService.collaborativeAnalyze(prompt);
-      } else {
-        result = await intelService.analyzeWithAI(prompt, model as any);
-      }
+      const result = await intelService.analyzeWithAI(prompt, (model as any) || 'gemini');
       
       res.json({ result });
     } catch (error: any) {
       console.error('[Intelligence] AI analysis failed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/intelligence/save', async (req, res) => {
+    const { report } = req.body;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!report || !userId) return res.status(400).json({ error: 'Report and User ID are required' });
+
+    try {
+      const intelService = IntelligenceService.getInstance();
+      const saved = await intelService.saveCompletedReport(userId, report);
+      res.json(saved);
+    } catch (error: any) {
+      console.error('[Intelligence] Save failed:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -957,9 +958,9 @@ async function startServer() {
         const data = await response.json();
         if (data.error) {
           return handleMetaError(res, data.error, () => res.json({ 
-            accounts: [],
-            isMock: false,
-            warning: 'Meta API connection failed. Please check your credentials in Settings.'
+            accounts: generateMockAdAccounts(),
+            isMock: true,
+            warning: 'Meta API returned an unexpected error. Showing mock data for demonstration.'
           }));
         }
         return res.json({ accounts: data.data || [] });
@@ -1092,9 +1093,9 @@ async function startServer() {
         
         if (data.error) {
           return handleMetaError(res, data.error, () => res.json({ 
-            campaigns: [],
-            isMock: false,
-            warning: 'Unauthorized. Please verify your Meta credentials in Settings.'
+            campaigns: generateMockCampaigns(accountId),
+            isMock: true,
+            warning: 'Meta API returned an unexpected error. Showing mock data for demonstration.'
           }));
         }
         
@@ -1186,13 +1187,8 @@ async function startServer() {
         if (dailyBudget) params.append('daily_budget', Math.round(dailyBudget * 100).toString());
         if (lifetimeBudget) params.append('lifetime_budget', Math.round(lifetimeBudget * 100).toString());
 
-        const url = `https://graph.facebook.com/v21.0/${idToUpdate}?${params.toString()}`;
-        const response = await fetch(url, { 
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const url = `https://graph.facebook.com/v21.0/${idToUpdate}?${params.toString()}&access_token=${token}`;
+        const response = await fetch(url, { method: 'POST' });
         const data = await response.json();
         
         if (data.error) {
@@ -1247,9 +1243,9 @@ async function startServer() {
         
         if (data.error) {
           return handleMetaError(res, data.error, () => res.json({ 
-            adsets: [], 
-            isMock: false,
-            warning: 'Unauthorized. Please verify your Meta credentials in Settings.'
+            adsets: generateMockAdSets(''), 
+            isMock: true,
+            warning: 'Meta API returned an unexpected error. Showing mock data for demonstration.'
           }));
         }
         
@@ -1347,9 +1343,9 @@ async function startServer() {
         
         if (data.error) {
           return handleMetaError(res, data.error, () => res.json({ 
-            ads: [], 
-            isMock: false,
-            warning: 'Unauthorized. Please verify your Meta credentials in Settings.'
+            ads: generateMockCampaignAds(''), 
+            isMock: true,
+            warning: 'Meta API returned an unexpected error. Showing mock data for demonstration.'
           }));
         }
         
@@ -1479,9 +1475,9 @@ async function startServer() {
         const data = await response.json();
         if (data.error) {
           return handleMetaError(res, data.error, () => res.json({ 
-            creatives: [],
-            isMock: false,
-            warning: 'Unauthorized. Please verify your Meta credentials in Settings.'
+            creatives: generateMockAdCreatives(),
+            isMock: true,
+            warning: 'Meta API returned an unexpected error. Showing mock data for demonstration.'
           }));
         }
         
@@ -1633,9 +1629,13 @@ async function startServer() {
         
         if (data.error) {
           return handleMetaError(res, data.error, () => res.json({ 
-            insights: [],
-            isMock: false,
-            warning: 'Unauthorized. Please verify your Meta credentials in Settings.'
+            insights: [
+              generateMockInsights('camp_1'),
+              generateMockInsights('camp_2'),
+              generateMockInsights('camp_3')
+            ],
+            isMock: true,
+            warning: 'Meta API returned an unexpected error. Showing mock data for demonstration.'
           }));
         }
         
@@ -1972,28 +1972,28 @@ async function startServer() {
         // Assuming frequency might be in raw data, but we can infer fatigue if CTR is low and spend is high
         if (metrics.spend > targetCpa * 3 && metrics.ctr < 0.8) problems.push('Ad Fatigue');
 
-        // Performance Guard Logic
+        // Decision Engine & Scaling Logic
         if (metrics.roas > targetRoas * 1.2 && metrics.spend > targetCpa) {
           decision = 'SCALE';
-          suggestedAction = 'Increase budget by 15-20% as yield is well above target.';
+          suggestedAction = 'Increase budget by 15-20% as ROAS is well above target.';
         } else if (metrics.roas > 0 && metrics.roas < targetRoas * 0.5 && metrics.spend > targetCpa) {
           decision = 'KILL';
-          suggestedAction = 'Pause immediately. ROAS is critically low and drain is significant.';
+          suggestedAction = 'Pause immediately. ROAS is critically low and spend is significant.';
         } else if (metrics.spend > targetCpa * 2 && metrics.conversions === 0) {
           decision = 'KILL';
-          suggestedAction = 'Pause immediately. High expenditure with zero conversion data.';
+          suggestedAction = 'Pause immediately. High spend with zero conversions.';
         } else if (metrics.roas >= targetRoas * 0.5 && metrics.roas <= targetRoas * 1.2 && metrics.spend > targetCpa) {
           decision = 'OPTIMIZE';
           if (problems.includes('Low CTR')) {
-            suggestedAction = 'Creative refresh advised to boost capture rate. Yield is currently marginal.';
+            suggestedAction = 'Refresh creative to improve CTR. Current ROAS is marginal.';
           } else if (problems.includes('High CPA')) {
-            suggestedAction = 'Refine audience segments or tighten placement to lower acquisition cost.';
+            suggestedAction = 'Test new audiences or tighten targeting to lower CPA.';
           } else {
-            suggestedAction = 'Stay vigilant. Performance is on the edge of target.';
+            suggestedAction = 'Monitor closely. Performance is borderline.';
           }
         } else {
           decision = 'MONITOR';
-          suggestedAction = 'Gathering more data for a high-confidence maneuver. Continue active tracking.';
+          suggestedAction = 'Not enough spend to make a definitive decision. Keep running.';
         }
 
         // Creative Analysis (if it's an ad/creative)
@@ -2063,7 +2063,10 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`[Config] GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? 'Present (starts with ' + process.env.GEMINI_API_KEY.substring(0, 10) + '...)' : 'MISSING'}`);
+    console.log(`[Config] OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? 'Present' : 'MISSING'}`);
+    console.log(`[Config] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'Present' : 'MISSING'}`);
     startApp();
   });
 }

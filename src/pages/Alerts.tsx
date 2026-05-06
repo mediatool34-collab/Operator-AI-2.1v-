@@ -210,7 +210,7 @@ export function Alerts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">System Alerts</h1>
-          <p className="text-gray-400 text-sm mt-1">Real-time performance oversight and automated diagnostics</p>
+          <p className="text-gray-400 text-sm mt-1">Real-time monitoring and automated diagnostics</p>
         </div>
         <button 
           onClick={fetchCampaignsAndGenerateAlerts} 

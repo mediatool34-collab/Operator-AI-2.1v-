@@ -69,42 +69,42 @@ export function SystemIntelligence() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <div className="p-1.5 bg-blue-500/20 rounded-lg border border-blue-500/30">
-              <BrainCircuit className="w-6 h-6 text-blue-400" />
+            <div className="p-1.5 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+              <BrainCircuit className="w-6 h-6 text-indigo-400" />
             </div>
-            Institutional Intelligence Command
+            System Intelligence
           </h1>
-          <p className="text-gray-400 text-sm mt-1 uppercase tracking-widest font-black text-[10px]">Autonomic Diagnostics • Real-time Corrective Protocols • Strategic Yield Memory</p>
+          <p className="text-gray-400 text-sm mt-1">Autonomous monitoring, fixing, and optimization engine.</p>
         </div>
         
-        <div className="flex items-center gap-4 bg-[#111827]/50 px-4 py-2 rounded-xl border border-white/5 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-          <div className="flex flex-col text-right">
-            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-0.5">Active Protocol</span>
-            <span className="text-xs font-semibold text-white">Agentic Yield Maximization</span>
+        <div className="flex items-center gap-4 bg-[#111827]/50 px-4 py-2 rounded-xl border border-white/5 shadow-inner">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-white">Auto Optimization</span>
+            <span className="text-xs text-gray-400">Let AI manage budgets & status</span>
           </div>
           <button 
             onClick={toggleAutoOpt} 
             disabled={toggling}
-            className={cn("transition-all duration-300 transform", data?.autoOptimizationEnabled ? "text-blue-400 scale-110 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]" : "text-gray-600 scale-100")}
+            className={cn("transition-colors", data?.autoOptimizationEnabled ? "text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]" : "text-gray-600")}
           >
             {data?.autoOptimizationEnabled ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Autonomic Integrity Matrix */}
-        <div className="glass-panel rounded-2xl overflow-hidden flex flex-col border-blue-500/10">
-          <div className="p-4 border-b border-white/10 bg-blue-500/5 flex items-center gap-2">
+        {/* Self Healing Engine */}
+        <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-white/10 bg-[#0B0F19]/50 flex items-center gap-2">
             <div className="p-1.5 bg-blue-500/20 rounded-lg border border-blue-500/30">
               <Wrench className="w-4 h-4 text-blue-400" />
             </div>
-            <h2 className="font-black text-white uppercase tracking-widest text-xs">Autonomic Integrity Matrix</h2>
+            <h2 className="font-semibold text-white">Self-Healing Engine</h2>
           </div>
           <div className="p-4 flex-1 overflow-y-auto max-h-96 space-y-6 custom-scrollbar">
             <div>
-              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b border-white/5 pb-1">Anomaly Detection Stream</h3>
+              <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Active Issues</h3>
               {data?.activeIssues.length === 0 ? (
                 <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">No active issues detected.</p>
               ) : (
@@ -124,18 +124,18 @@ export function SystemIntelligence() {
             </div>
             
             <div>
-              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b border-white/5 pb-1">Historical Corrective Logs</h3>
+              <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Recent Auto-Fixes</h3>
               {data?.autoFixes.length === 0 ? (
-                <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">No corrective records available.</p>
+                <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">No recent fixes.</p>
               ) : (
                 <div className="space-y-2">
                   {data?.autoFixes.map((fix: any) => (
-                    <div key={fix.id} className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3 shadow-inner">
-                      <CheckCircle2 className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div key={fix.id} className="p-3 bg-green-500/5 border border-green-500/20 rounded-xl flex items-start gap-3 shadow-inner">
+                      <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-semibold text-blue-300">{fix.actionTaken}</p>
-                        <p className="text-xs text-blue-200/70 mt-0.5">Execution sequence complete for anomaly {fix.issueId}</p>
-                        <p className="text-[10px] text-blue-500/50 mt-1.5 font-mono">{new Date(fix.timestamp).toLocaleString()}</p>
+                        <p className="text-sm font-semibold text-green-300">{fix.actionTaken}</p>
+                        <p className="text-xs text-green-200/70 mt-0.5">Resolved issue {fix.issueId}</p>
+                        <p className="text-[10px] text-green-500/50 mt-1.5 font-mono">{new Date(fix.timestamp).toLocaleString()}</p>
                       </div>
                     </div>
                   ))}
@@ -145,24 +145,24 @@ export function SystemIntelligence() {
           </div>
         </div>
 
-        {/* Global Strategy Engine */}
-        <div className="glass-panel rounded-2xl overflow-hidden flex flex-col border-blue-500/10">
-          <div className="p-4 border-b border-white/10 bg-blue-500/5 flex items-center gap-2">
-            <div className="p-1.5 bg-blue-500/20 rounded-lg border border-blue-500/30">
-              <Zap className="w-4 h-4 text-blue-400" />
+        {/* Auto Optimization Engine */}
+        <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-white/10 bg-[#0B0F19]/50 flex items-center gap-2">
+            <div className="p-1.5 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+              <Zap className="w-4 h-4 text-yellow-400" />
             </div>
-            <h2 className="font-black text-white uppercase tracking-widest text-xs">Global Optimization Stream</h2>
+            <h2 className="font-semibold text-white">Optimization Actions</h2>
           </div>
           <div className="p-4 flex-1 overflow-y-auto max-h-96 custom-scrollbar">
             {data?.optimizationActions.length === 0 ? (
-              <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">Strategic engine idle. Awaiting yield signals.</p>
+              <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">No optimization actions taken yet.</p>
             ) : (
               <div className="space-y-3">
                 {data?.optimizationActions.map((action: any) => (
                   <div key={action.id} className="p-3 bg-[#111827]/50 border border-white/5 rounded-xl flex items-start gap-3 shadow-inner">
                     <div className={cn(
                       "p-2 rounded-lg flex-shrink-0 border",
-                      action.action === 'SCALE' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                      action.action === 'SCALE' ? "bg-green-500/10 text-green-400 border-green-500/20" :
                       action.action === 'REDUCE' ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
                       action.action === 'PAUSE' ? "bg-red-500/10 text-red-400 border-red-500/20" :
                       "bg-blue-500/10 text-blue-400 border-blue-500/20"
@@ -172,15 +172,15 @@ export function SystemIntelligence() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className={cn(
-                          "text-[10px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest border",
-                          action.action === 'SCALE' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                          "text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider border",
+                          action.action === 'SCALE' ? "bg-green-500/10 text-green-400 border-green-500/20" :
                           action.action === 'REDUCE' ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
                           action.action === 'PAUSE' ? "bg-red-500/10 text-red-400 border-red-500/20" :
                           "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                        )}>{action.action === 'SCALE' ? 'YIELD_SCALE' : action.action === 'REDUCE' ? 'BUDGET_THROTTLE' : action.action}</span>
-                        <span className="text-sm font-semibold text-white tracking-tight">{action.campaignName}</span>
+                        )}>{action.action}</span>
+                        <span className="text-sm font-semibold text-white">{action.campaignName}</span>
                       </div>
-                      <p className="text-sm text-gray-400 mt-1.5 leading-relaxed">{action.reason}</p>
+                      <p className="text-sm text-gray-400 mt-1.5">{action.reason}</p>
                       <p className="text-[10px] text-gray-500 mt-1.5 font-mono">{new Date(action.timestamp).toLocaleString()}</p>
                     </div>
                   </div>
@@ -190,45 +190,45 @@ export function SystemIntelligence() {
           </div>
         </div>
 
-        {/* Neural Strategic Memory */}
-        <div className="glass-panel rounded-2xl overflow-hidden flex flex-col lg:col-span-2 border-indigo-500/10">
-          <div className="p-4 border-b border-white/10 bg-indigo-500/5 flex items-center gap-2">
+        {/* Smart Learning Engine */}
+        <div className="glass-panel rounded-2xl overflow-hidden flex flex-col lg:col-span-2">
+          <div className="p-4 border-b border-white/10 bg-[#0B0F19]/50 flex items-center gap-2">
             <div className="p-1.5 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
               <BrainCircuit className="w-4 h-4 text-indigo-400" />
             </div>
-            <h2 className="font-black text-white uppercase tracking-widest text-xs">Neural Strategic Memory</h2>
+            <h2 className="font-semibold text-white">Smart Learning Insights</h2>
           </div>
           <div className="p-4 overflow-x-auto custom-scrollbar">
             {data?.learningInsights.length === 0 ? (
-              <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">Neural pathways initializing. Strategic pattern recognition in progress.</p>
+              <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">No learning insights generated yet.</p>
             ) : (
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-gray-500 text-[10px] uppercase tracking-widest font-black">
-                    <th className="pb-3 px-2">Diagnostic Observation</th>
-                    <th className="pb-3 px-2">Intervention Type</th>
-                    <th className="pb-3 px-2">Yield Vector</th>
-                    <th className="pb-3 px-2">Institutional Insight</th>
-                    <th className="pb-3 px-2 text-right">Protocol Date</th>
+                  <tr className="border-b border-white/10 text-gray-400 text-xs uppercase tracking-wider">
+                    <th className="pb-3 font-semibold">Problem Detected</th>
+                    <th className="pb-3 font-semibold">Action Taken</th>
+                    <th className="pb-3 font-semibold">Result</th>
+                    <th className="pb-3 font-semibold">System Insight</th>
+                    <th className="pb-3 font-semibold">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {data?.learningInsights.map((insight: any) => (
-                    <tr key={insight.id} className="hover:bg-white/5 transition-colors group">
-                      <td className="py-4 px-2 text-white font-semibold tracking-tight">{insight.problem}</td>
-                      <td className="py-4 px-2 text-gray-400 text-xs">{insight.actionTaken}</td>
-                      <td className="py-4 px-2">
+                    <tr key={insight.id} className="hover:bg-white/5 transition-colors">
+                      <td className="py-4 pr-4 text-white font-medium">{insight.problem}</td>
+                      <td className="py-4 pr-4 text-gray-400">{insight.actionTaken}</td>
+                      <td className="py-4 pr-4">
                         <span className={cn(
-                          "px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border",
-                          insight.result === 'IMPROVED' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                          "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border",
+                          insight.result === 'IMPROVED' ? "bg-green-500/10 text-green-400 border-green-500/20" :
                           insight.result === 'FAILED' ? "bg-red-500/10 text-red-400 border-red-500/20" :
                           "bg-gray-500/10 text-gray-400 border-gray-500/20"
                         )}>
                           {insight.result}
                         </span>
                       </td>
-                      <td className="py-4 px-2 font-medium text-indigo-300 text-xs italic">{insight.insight}</td>
-                      <td className="py-4 px-2 text-gray-500 text-[10px] text-right font-mono uppercase">{new Date(insight.timestamp).toLocaleDateString()}</td>
+                      <td className="py-4 pr-4 font-medium text-indigo-300">{insight.insight}</td>
+                      <td className="py-4 text-gray-500 text-xs whitespace-nowrap font-mono">{new Date(insight.timestamp).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>

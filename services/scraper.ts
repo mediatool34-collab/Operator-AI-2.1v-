@@ -41,16 +41,21 @@ export class ScraperService {
       timeout = 30000,
     } = options;
 
+    let targetUrl = url;
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = `https://${targetUrl}`;
+    }
+
     let lastError: Error | null = null;
     let currentEngine = engine;
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        console.log(`[Scraper] Attempt ${attempt + 1} using ${currentEngine} for ${url}`);
+        console.log(`[Scraper] Attempt ${attempt + 1} using ${currentEngine} for ${targetUrl}`);
         if (currentEngine === 'puppeteer') {
-          return await this.scrapeWithPuppeteer(url, options);
+          return await this.scrapeWithPuppeteer(targetUrl, options);
         } else {
-          return await this.scrapeWithPlaywright(url, options);
+          return await this.scrapeWithPlaywright(targetUrl, options);
         }
       } catch (error: any) {
         lastError = error;

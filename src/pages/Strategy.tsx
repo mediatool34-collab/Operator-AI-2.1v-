@@ -6,10 +6,11 @@ import ReactMarkdown from 'react-markdown';
 import { cn, safeJson } from '../lib/utils';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { analyzeWithGemini } from '../lib/gemini';
 
 export function Strategy() {
   const { user } = useAuth();
-  const { provider: aiProvider, manusMode } = useAiSettings();
+  const { provider: aiProvider } = useAiSettings();
   const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, platform, metaSubPlatform } = useFilters();
   
   const [loading, setLoading] = useState(true);
@@ -101,11 +102,10 @@ export function Strategy() {
   const handleGenerateStrategy = async () => {
     setGenerating(true);
     try {
-      const prompt = `You are a Senior Institutional Performance Auditor. 
-Your objective is to provide a High-Authority Strategic Yield Roadmap based on the provided campaign metrics. 
-Adopt a tone of Cold, Analytical Precision. Use MBA-level business English.
+      const prompt = `You are a senior performance marketing strategist.
+Analyze the following campaign performance data and provide a comprehensive strategy for the next 30 days.
 
-Dataset:
+Campaign Data:
 ${JSON.stringify(campaignData.map(c => ({
   name: c.name,
   spend: c.metrics.spend,
@@ -117,34 +117,38 @@ ${JSON.stringify(campaignData.map(c => ({
   explanation: c.explanation
 })))}
 
-${manusMode ? 'AGENTIC PROTOCOL: Act as an H.F.A Autonomous Agent. Execute institutional-grade maneuvers for market dominance.' : 'Provide actionable, data-driven diagnostics.'}
+Provide actionable, data-driven advice.
 
-OUTPUT REQUIREMENTS:
-- Language: PROFESSIONAL ENGLISH ONLY.
-- Format: CLEAN MARKDOWN.
-- Mandatory Sections:
-  1. ### EXECUTIVE SUMMARY (The "Cold Truth")
-  2. ### YIELD ACCELERATION VECTORS (Scaling & Growth)
-  3. ### FATAL ANOMALY MITIGATION (Pausing & Cutting)
-  4. ### CREATIVE ARBITRAGE PROTOCOLS
-  5. ### 30-DAY STRATEGIC MILESTONES`;
+Provide the output in Markdown format with the following sections:
+### 📊 Performance Overview
+### 🚀 Scaling Opportunities (Which campaigns to increase budget on and why)
+### 🛠 Optimization Tasks (Which campaigns to fix or kill)
+### 💡 Creative & Targeting Recommendations
+### 📅 30-Day Roadmap`;
 
-      const response = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
-        body: JSON.stringify({
-          prompt,
-          model: aiProvider
-        })
-      });
+      let aiResult = '';
+      
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, false);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({
+            prompt,
+            model: aiProvider
+          })
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
-      setStrategy(data.result);
+      setStrategy(aiResult);
     } catch (error: any) {
       console.error('Error generating strategy:', error);
       if (error.message?.includes('429') || error.message?.toLowerCase().includes('quota') || error.message?.toLowerCase().includes('limit')) {
@@ -197,21 +201,21 @@ OUTPUT REQUIREMENTS:
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight uppercase tracking-tighter">Tactical Yield Roadmap</h1>
-          <p className="text-gray-400 text-sm mt-1 uppercase tracking-widest font-black text-[10px]">Institutional Diagnostics • Budget Vector Scaling • Creative Arbitrage</p>
+          <h1 className="text-2xl font-bold text-white">Marketing Strategy</h1>
+          <p className="text-gray-400 text-sm mt-1">Data-driven scaling, killing, and creative plans</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={fetchAllData} className="bg-white/5 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-white/10 transition-colors flex items-center gap-2 shadow-inner text-[10px]">
+          <button onClick={fetchAllData} className="bg-white/5 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors flex items-center gap-2 shadow-sm">
             <Activity className="w-4 h-4" />
-            Protocol Sync
+            Sync Data
           </button>
           <button 
             onClick={handleGenerateStrategy}
             disabled={generating || campaignData.length === 0}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-blue-500 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-[0_0_20px_rgba(37,99,235,0.4)] text-[10px]"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(37,99,235,0.3)]"
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-400" />}
-            Execute Neural Audit
+            Generate Strategy
           </button>
         </div>
       </div>

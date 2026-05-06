@@ -6,13 +6,6 @@ interface CreativeViewerProps {
 }
 
 export function CreativeViewer({ creative }: CreativeViewerProps) {
-  const [imgError, setImgError] = React.useState(false);
-
-  // Reset error state when creative changes
-  React.useEffect(() => {
-    setImgError(false);
-  }, [creative?.id, creative?.imageUrl]);
-
   if (!creative) {
     return (
       <div className="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
@@ -22,8 +15,6 @@ export function CreativeViewer({ creative }: CreativeViewerProps) {
       </div>
     );
   }
-
-  const showPlaceholder = !creative.imageUrl || imgError;
 
   return (
     <div className="glass-panel rounded-2xl overflow-hidden h-full flex flex-col relative group">
@@ -39,9 +30,9 @@ export function CreativeViewer({ creative }: CreativeViewerProps) {
       </div>
       <div className="p-6 flex-1 overflow-y-auto custom-scrollbar relative z-10">
         <div className="space-y-6">
-          <div>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Visual</h3>
-            {!showPlaceholder ? (
+          {creative.imageUrl ? (
+            <div>
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Visual</h3>
               <div className="rounded-xl overflow-hidden border border-white/10 bg-[#0B0F19] flex items-center justify-center relative group/img">
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                   <button className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-sm font-medium rounded-lg border border-white/20 transition-all">
@@ -52,20 +43,19 @@ export function CreativeViewer({ creative }: CreativeViewerProps) {
                   src={creative.imageUrl} 
                   alt={creative.name || 'Creative'} 
                   className="max-w-full h-auto max-h-[400px] object-contain"
-                  onError={() => setImgError(true)}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ad/400/400'; // Fallback if URL is broken/expired
+                  }}
                   referrerPolicy="no-referrer"
                 />
               </div>
-            ) : (
-              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-12 flex flex-col items-center justify-center text-gray-500 min-h-[300px]">
-                <div className="p-4 bg-white/5 rounded-full mb-4 border border-white/5">
-                  <ImageIcon className="w-8 h-8 opacity-40 text-gray-400" />
-                </div>
-                <p className="text-sm font-medium">No visual available</p>
-                <p className="text-[10px] text-gray-600 mt-1 uppercase tracking-tighter">The asset link may have expired or is unavailable</p>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/5 bg-[#111827]/50 p-8 flex flex-col items-center justify-center text-gray-500">
+              <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+              <p className="text-sm">No image available</p>
+            </div>
+          )}
 
           {creative.body && (
             <div>

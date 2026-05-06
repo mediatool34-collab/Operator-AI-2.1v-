@@ -1,12 +1,13 @@
 import React from 'react';
 import { useAuth } from '../lib/auth';
+import { signInWithGoogle, logOut } from '../lib/firebase';
 import { LogIn, LogOut } from 'lucide-react';
 import { AccountSelector } from './AccountSelector';
 import { DateRangePicker } from './DateRangePicker';
 import { useFilters } from '../lib/FilterContext';
 
 export function Topbar() {
-  const { user, login, logout } = useAuth();
+  const { user } = useAuth();
   const { platform, setPlatform, metaSubPlatform, setMetaSubPlatform, metaProfile } = useFilters();
 
   return (
@@ -57,7 +58,7 @@ export function Topbar() {
               <span className="text-sm font-medium text-gray-200">{metaProfile?.name || user.displayName}</span>
             </div>
             <button
-              onClick={logout}
+              onClick={logOut}
               className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-all active:scale-90"
               title="Log out"
             >
@@ -66,7 +67,7 @@ export function Topbar() {
           </div>
         ) : (
           <button
-            onClick={login}
+            onClick={signInWithGoogle}
             className="flex items-center gap-2 bg-brand-accent/20 border border-brand-accent/30 text-brand-accent px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-brand-accent/30 transition-all shadow-[0_0_20px_rgba(59,130,246,0.2)] active:scale-95"
           >
             <LogIn className="w-4 h-4" />

@@ -6,9 +6,10 @@ import { cn, safeJson } from '../lib/utils';
 import Markdown from 'react-markdown';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { analyzeWithGemini } from '../lib/gemini';
 
 export function LiveAdSpy() {
-  const { provider: aiProvider, manusMode } = useAiSettings();
+  const { provider: aiProvider } = useAiSettings();
   const { user } = useAuth();
   const { metaToken, metaSubPlatform } = useFilters();
   
@@ -70,8 +71,6 @@ export function LiveAdSpy() {
         Analyze the following active ads from the Meta Ads Library for the search term "${searchTerms}".
         Identify winning patterns, common hooks, offers, and creative strategies used by these advertisers.
         
-        ${manusMode ? 'AGENTIC INSTRUCTION: You are in MANUS AI AUTONOMOUS MODE. Extract ruthless competitive intelligence and identify weaknesses to exploit.' : ''}
-
         Ads Data:
         ${JSON.stringify(ads.slice(0, 20).map(ad => ({
           pageName: ad.page_name,
@@ -80,30 +79,36 @@ export function LiveAdSpy() {
           platforms: ad.publisher_platforms
         })))}
 
-        Provide a concise, actionable analysis in PROFESSIONAL MARKETING ENGLISH. No other languages allowed. 
-        Sections:
+        Provide a concise, actionable analysis with the following sections:
         1. **Common Hooks & Angles**: What are the main ways they grab attention?
         2. **Offers & Value Props**: What are they selling and how are they pricing/positioning it?
         3. **Creative Formats**: What seems to be the dominant format (based on text length, platforms, etc.)?
         4. **Actionable Takeaways**: 3 bullet points on how to compete against these ads.
       `;
 
-      const response = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
-        body: JSON.stringify({
-          prompt,
-          model: aiProvider
-        })
-      });
+      let aiResult = '';
+      
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, false);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({
+            prompt,
+            model: aiProvider
+          })
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
-      setAnalysis(data.result);
+      setAnalysis(aiResult);
     } catch (err: any) {
       console.error('Failed to analyze ads', err);
       if (err.message?.includes('429') || err.message?.toLowerCase().includes('quota') || err.message?.toLowerCase().includes('limit')) {

@@ -6,9 +6,10 @@ import ReactMarkdown from 'react-markdown';
 import { cn, safeJson } from '../lib/utils';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { analyzeWithGemini } from '../lib/gemini';
 
 export function TestingEngine() {
-  const { provider: aiProvider, manusMode } = useAiSettings();
+  const { provider: aiProvider } = useAiSettings();
   const { user } = useAuth();
   const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, platform, metaSubPlatform } = useFilters();
   
@@ -139,8 +140,6 @@ export function TestingEngine() {
       const prompt = `You are a senior performance marketing analyst.
 Analyze the following active A/B tests and provide a data-driven testing plan for the next cycle.
 
-${manusMode ? 'AGENTIC INSTRUCTION: You are in MANUS AI AUTONOMOUS MODE. Analyze these experiments with scientific precision to find mathematical scaling wins.' : ''}
-
 Active Tests:
 ${JSON.stringify(tests.map(t => ({
   type: t.type,
@@ -162,22 +161,29 @@ Provide the output in Markdown format with the following sections:
 ### 📋 Implementation Steps
 ### 🎯 Expected Impact`;
 
-      const response = await fetch('/api/intelligence/advanced-analysis', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
-        body: JSON.stringify({
-          prompt,
-          model: aiProvider
-        })
-      });
+      let aiResult = '';
+      
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, false);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({
+            prompt,
+            model: aiProvider
+          })
+        });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        aiResult = data.result;
+      }
 
-      setTestingPlan(data.result);
+      setTestingPlan(aiResult);
     } catch (error: any) {
       console.error('Error generating plan:', error);
       if (error.message?.includes('429') || error.message?.toLowerCase().includes('quota') || error.message?.toLowerCase().includes('limit')) {

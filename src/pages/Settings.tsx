@@ -12,8 +12,6 @@ export function Settings() {
   const [tiktokConnected, setTiktokConnected] = useState(false);
   const [snapchatConnected, setSnapchatConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [manusMode, setManusMode] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
@@ -68,13 +66,6 @@ export function Settings() {
           if (googleSnap.exists() && googleSnap.data().accessToken) setGoogleConnected(true);
           if (tiktokSnap.exists() && tiktokSnap.data().accessToken) setTiktokConnected(true);
           if (snapchatSnap.exists() && snapchatSnap.data().accessToken) setSnapchatConnected(true);
-
-          // Fetch Global AI Settings
-          const settingsSnap = await getDoc(doc(db, 'users', user.uid, 'settings', 'intelligence'));
-          if (settingsSnap.exists()) {
-            const data = settingsSnap.data();
-            if (data.manusMode !== undefined) setManusMode(data.manusMode);
-          }
         } catch (err: any) {
           console.error('Error fetching tokens:', err);
           if (err.code === 'permission-denied') {
@@ -104,22 +95,6 @@ export function Settings() {
       if (platform === 'snapchat') setSnapchatConnected(false);
     } catch (error) {
       console.error(`Error disconnecting ${platform}:`, error);
-    }
-  };
-
-  const saveAiSettings = async (manus: boolean) => {
-    if (!user) return;
-    setSavingSettings(true);
-    try {
-      await setDoc(doc(db, 'users', user.uid, 'settings', 'intelligence'), {
-        manusMode: manus,
-        updatedAt: serverTimestamp()
-      });
-      setManusMode(manus);
-    } catch (err) {
-      console.error('Error saving AI settings:', err);
-    } finally {
-      setSavingSettings(false);
     }
   };
 
@@ -164,34 +139,10 @@ export function Settings() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Institutional Linkage Protocols</h1>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Platform Linkage (Multi-Account Scaling)</h1>
       </div>
 
       <div className="glass-panel rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white mb-4">Autonomous Intelligence Governance</h2>
-          
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
-              <div>
-                <div className="font-bold text-white text-sm">H.F.A Autonomous Command Protocol</div>
-                <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-black">Enable Agentic Execution & Predictive Yield Safeguards</div>
-              </div>
-              <button 
-                onClick={() => saveAiSettings(!manusMode)}
-                disabled={savingSettings}
-                className={`w-12 h-6 rounded-full relative transition-all ${
-                  manusMode ? 'bg-blue-600' : 'bg-gray-700'
-                }`}
-              >
-                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${
-                  manusMode ? 'right-1' : 'left-1'
-                }`} />
-              </button>
-            </div>
-          </div>
-        </div>
-
         <div className="p-6 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white mb-4">Account Profile</h2>
           <div className="flex items-center gap-4">

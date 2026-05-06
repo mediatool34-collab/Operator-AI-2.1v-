@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/auth';
-import { AlertCircle, DollarSign, MousePointerClick, Users, Target, Activity, Zap, TrendingUp, PauseCircle, X, CheckCircle2, ChevronRight, Shield } from 'lucide-react';
+import { signInWithGoogle } from '../lib/firebase';
+import { AlertCircle, DollarSign, MousePointerClick, Users, Target, Activity, Zap, TrendingUp, PauseCircle, X, CheckCircle2, ChevronRight, BrainCircuit, ActivitySquare } from 'lucide-react';
 import { useFilters } from '../lib/FilterContext';
 import { CampaignTree } from '../components/CampaignTree';
 import { InsightPanel } from '../components/InsightPanel';
@@ -11,9 +12,12 @@ import { PerformanceChart } from '../components/PerformanceChart';
 import { ActivityFeed } from '../components/ActivityFeed';
 import { cn, safeJson } from '../lib/utils';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { useAiSettings } from '../hooks/useAiSettings';
+import { analyzeWithGemini } from '../lib/gemini';
 
 export function Dashboard() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
+  const { provider: aiProvider } = useAiSettings();
   const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, platform, metaSubPlatform } = useFilters();
   
   const [campaigns, setCampaigns] = usePersistedState<any[]>('dashboard_campaigns', []);
@@ -419,7 +423,7 @@ export function Dashboard() {
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button
-                  onClick={login}
+                  onClick={signInWithGoogle}
                   className="flex items-center gap-3 bg-brand-accent text-white px-8 py-4 rounded-2xl text-base font-bold hover:bg-brand-accent/90 transition-all shadow-[0_0_30px_rgba(59,130,246,0.4)] active:scale-95 group"
                 >
                   <Activity className="w-5 h-5 group-hover:rotate-12 transition-transform" />
@@ -467,26 +471,25 @@ export function Dashboard() {
   if (!getToken()) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4">
-        <div className="glass-panel p-12 rounded-[3rem] max-w-xl w-full border border-blue-500/10 relative overflow-hidden group shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="glass-panel p-10 rounded-[2rem] max-w-lg w-full border border-yellow-500/10 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
           <div className="relative z-10">
-            <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
-              <Shield className="w-10 h-10 text-blue-500" />
+            <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-yellow-500/20">
+              <AlertCircle className="w-8 h-8 text-yellow-500" />
             </div>
             
-            <h2 className="text-3xl font-black text-white mb-4 tracking-tighter uppercase leading-[0.9]">Strategic Linkage <br /> Required</h2>
-            <p className="text-gray-400 mb-10 leading-relaxed font-medium">
-              The Command Terminal is awaiting secure connectivity to your {platform.toUpperCase()} asset. 
-              Unauthorized access to performance protocols is strictly restricted.
+            <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">No Active Linkage Detected</h2>
+            <p className="text-gray-400 mb-8 leading-relaxed">
+              Operator AI requires a secure connection to your {platform.charAt(0).toUpperCase() + platform.slice(1)} account to synthesize data and deploy S.F.K protocols.
             </p>
             
             <NavLink 
               to="/settings"
-              className="inline-flex items-center gap-4 bg-white text-black px-10 py-5 rounded-2xl font-black tracking-widest uppercase text-xs hover:bg-gray-200 transition-all shadow-[0_20px_40px_rgba(255,255,255,0.1)] active:scale-95"
+              className="inline-flex items-center gap-3 bg-brand-accent text-white px-8 py-3.5 rounded-xl font-bold hover:bg-brand-accent/90 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] active:scale-95"
             >
-              <Zap className="w-5 h-5 fill-black" />
-              Authorize Access Protocol
+              <Target className="w-5 h-5" />
+              Link Your Ad Account
             </NavLink>
           </div>
         </div>
@@ -584,6 +587,76 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* Rapid Diagnosis Section (Core Prototype Feature) */}
+      <div className="glass-panel p-8 rounded-[2rem] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 to-transparent shrink-0 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+          <BrainCircuit className="w-32 h-32 text-indigo-400 rotate-12" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-indigo-500/20 rounded-lg">
+              <Zap className="w-5 h-5 text-indigo-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">Collaborative Intelligence Audit</h2>
+          </div>
+          <p className="text-gray-400 text-sm max-w-2xl mb-6 leading-relaxed">
+            Run a deep-brain audit across all active channels. Our multi-engine sequence (Gemini + GPT-4o + Claude) 
+            synthesizes cross-platform data to detect hidden scaling opportunities or critical leakage.
+          </p>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={async () => {
+                setAnalyzingGlobal(true);
+                try {
+                  const prompt = `Analyze the overall performance of this ${platform} account. Focus on ROI and scaling potential. Account ID: ${selectedAccountId}`;
+                  
+                  let aiResult = '';
+                  if (aiProvider === 'gemini') {
+                    aiResult = await analyzeWithGemini(prompt, false);
+                  } else {
+                    const res = await fetch('/api/intelligence/advanced-analysis', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'x-user-id': user!.uid },
+                      body: JSON.stringify({ prompt, model: aiProvider })
+                    });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    aiResult = data.result;
+                  }
+
+                  setGlobalAnalysis({
+                    decision: 'READY',
+                    suggestedAction: aiResult,
+                    problems: ['Detected via Multi-Engine Collaborative Analysis']
+                  });
+                } catch (e) {
+                  console.error(e);
+                } finally {
+                  setAnalyzingGlobal(false);
+                }
+              }}
+              disabled={analyzingGlobal}
+              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)] flex items-center gap-2 group/btn"
+            >
+              {analyzingGlobal ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Synergizing Experts...
+                </>
+              ) : (
+                <>
+                  <ActivitySquare className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                  Initiate Rapid Diagnosis
+                </>
+              )}
+            </button>
+            <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] px-4 py-2 border border-white/5 rounded-lg bg-black/20">
+              Engines: Gemini-3 • GPT-4o • Claude-3.5
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Top KPI Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
         <KpiCard title="Total Spend" value={`$${totalSpend.toFixed(2)}`} icon={DollarSign} trend={spendTrend} />
@@ -645,7 +718,7 @@ export function Dashboard() {
                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">ROAS Performance</h3>
                 {roasTrend !== undefined && (
                   <span className={cn("text-xs font-medium", roasTrend >= 0 ? "text-blue-400" : "text-indigo-400")}>
-                    {roasTrend >= 0 ? 'Improving' : 'Vigilance Required'}
+                    {roasTrend >= 0 ? 'Improving' : 'Monitoring'}
                   </span>
                 )}
               </div>

@@ -48,7 +48,7 @@ const adminApp = admin.apps.length === 0
 const effectiveDatabaseId = (configDatabaseId && configDatabaseId !== '(default)') ? configDatabaseId : undefined;
 
 export const adminDb = effectiveDatabaseId 
-  ? adminApp.firestore(effectiveDatabaseId)
-  : adminApp.firestore();
+  ? getAdminFirestore(adminApp, effectiveDatabaseId)
+  : getAdminFirestore(adminApp);
 
 console.log(`[Firebase] ✅ Admin SDK authorized for project: ${configProjectId} (Database: ${effectiveDatabaseId || 'default'})`);

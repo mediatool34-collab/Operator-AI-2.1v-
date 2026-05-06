@@ -1,30 +1,26 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Target, Image as ImageIcon, FlaskConical, Lightbulb, Bell, Settings, ActivitySquare, CheckSquare, Globe, Search, Eye, BrainCircuit, History, Calculator, Shield, LogOut } from 'lucide-react';
+import { LayoutDashboard, Target, Image as ImageIcon, FlaskConical, Lightbulb, Bell, Settings, ActivitySquare, CheckSquare, Globe, Search, Eye, BrainCircuit, History, Calculator, Shield } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useAuth } from '../lib/auth';
 
 const navItems = [
-  { name: 'Unified Performance', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'Smart Dashboard', path: '/dashboard', icon: LayoutDashboard, core: true },
+  { name: 'S.F.K Strategy', path: '/automation', icon: CheckSquare, core: true },
+  { name: 'Intelligent Audit', path: '/campaigns', icon: Target, core: true },
   { name: 'Live Market Spy', path: '/ad-spy', icon: Eye },
-  { name: 'Creative Intelligence', path: '/creatives', icon: ImageIcon },
-  { name: 'Intelligent Audit', path: '/campaigns', icon: Target },
-  { name: 'S.F.K Execution', path: '/automation', icon: CheckSquare },
-  { name: 'Strategic Roadmap', path: '/strategy', icon: Lightbulb },
-  { name: 'Admin Command', path: '/admin', icon: Shield },
-  { name: 'Budget Orchestration', path: '/budget', icon: Calculator },
+  { name: 'Creative Intel', path: '/creatives', icon: ImageIcon },
   { name: 'Testing Engine', path: '/scaling', icon: FlaskConical },
-  { name: 'Funnel Diagnosis', path: '/funnel', icon: ActivitySquare },
+  { name: 'Strategic Roadmap', path: '/strategy', icon: Lightbulb },
   { name: 'Market Intel', path: '/market', icon: Globe },
-  { name: 'Pre-Funnel Analysis', path: '/pre-funnel', icon: BrainCircuit },
+  { name: 'Pre-Funnel Diagnosis', path: '/pre-funnel', icon: BrainCircuit },
+  { name: 'Budget Orchestration', path: '/budget', icon: Calculator },
+  { name: 'Admin Command', path: '/admin', icon: Shield },
+  { name: 'User Settings', path: '/settings', icon: Settings },
   { name: 'Optimization Logs', path: '/logs', icon: History },
   { name: 'Smart Alerts', path: '/alerts', icon: Bell },
-  { name: 'User Settings', path: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
-
   return (
     <div className="w-64 bg-brand-panel/95 backdrop-blur-xl text-gray-300 flex flex-col h-screen border-r border-brand-border relative z-20 shadow-2xl">
       <div className="p-8">
@@ -45,31 +41,25 @@ export function Sidebar() {
                 'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden',
                 isActive
                   ? 'bg-brand-accent/10 text-brand-accent border border-brand-accent/20 shadow-[0_0_20px_rgba(59,130,246,0.05)]'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent',
+                item.core && !isActive && 'text-gray-200 bg-white/[0.02]'
               )
             }
           >
-            <item.icon className={cn("w-4 h-4 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", "group-[.active]:text-brand-accent")} />
-            {item.name}
-            <div className="absolute inset-0 bg-gradient-to-r from-brand-accent/0 via-brand-accent/0 to-brand-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            {({ isActive }) => (
+              <>
+                <item.icon className={cn("w-4 h-4 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", isActive && "text-brand-accent", item.core && "text-indigo-400")} />
+                {item.name}
+                {item.core && (
+                  <div className="ml-auto w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-brand-accent/0 via-brand-accent/0 to-brand-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
-      <div className="p-4 border-t border-brand-border bg-brand-panel/50 space-y-4">
-        {user && (
-          <div className="flex items-center gap-3 px-2">
-            <img 
-              src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || 'User'}&background=random&color=fff`} 
-              className="w-10 h-10 rounded-xl border border-brand-border shadow-lg"
-              alt="Profile"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{user.displayName || 'Operator'}</p>
-              <p className="text-[10px] text-gray-500 truncate uppercase tracking-widest leading-none mt-1">Tier: Enterprise</p>
-            </div>
-          </div>
-        )}
-        
+      <div className="p-6 border-t border-brand-border bg-brand-panel/50">
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">System Status</span>
@@ -80,14 +70,6 @@ export function Sidebar() {
             <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-40"></div>
           </div>
         </div>
-
-        <button 
-          onClick={() => logout()}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20"
-        >
-          <LogOut className="w-4 h-4" />
-          Terminate Session
-        </button>
       </div>
     </div>
   );

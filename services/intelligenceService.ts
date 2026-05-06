@@ -2,7 +2,6 @@ import { ScraperService } from './scraper.ts';
 import { adminDb } from '../firebase-config.ts';
 import { AdSpyEngine } from '../intel/adSpy.ts';
 import axios from 'axios';
-import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -77,64 +76,22 @@ export class IntelligenceService {
   }
 
   /**
-   * Performs collaborative AI analysis using Gemini as host and others as experts
-   */
-  async collaborativeAnalyze(prompt: string): Promise<string> {
-    console.log('[Intelligence] 🤝 Starting Collaborative Intelligence...');
-    
-    // 1. Get Experts' opinions (Parallel) - ONLY if keys exist and are valid
-    const expertCalls: Promise<string>[] = [];
-    
-    const hasOpenAI = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes('TODO');
-    const hasAnthropic = process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY.includes('TODO');
-
-    if (hasOpenAI) {
-      expertCalls.push(this.analyzeWithAI(`EXPERT TASK: Provide deep logical reasoning, data-structure verification, and mathematical sanity checks for the following request. Focus on finding flaws or optimizations. REQUEST: ${prompt.substring(0, 2000)}`, 'openai'));
-    }
-    
-    if (hasAnthropic) {
-      expertCalls.push(this.analyzeWithAI(`EXPERT TASK: Provide strategic direction, market positioning, and polished narrative articulation for the following request. REQUEST: ${prompt.substring(0, 2000)}`, 'anthropic'));
-    }
-
-    let experts: any[] = [];
-    if (expertCalls.length > 0) {
-      experts = await Promise.allSettled(expertCalls);
-    }
-
-    const logicExpert = hasOpenAI && experts[0]?.status === 'fulfilled' ? experts[0].value : 'Logic expertise unavailable (Key or Quota issue).';
-    const strategyExpert = hasAnthropic && experts[1]?.status === 'fulfilled' ? experts[1].value : 'Strategic expertise unavailable (Key or Quota issue).';
-
-    // 2. Aggregate with Gemini (The Master Engine)
-    const finalPrompt = `
-      You are the Master Marketing Intelligence Engine.
-      You have received specialized insights from your internal reasoning experts.
-      
-      EXPERT INSIGHTS:
-      ${logicExpert}
-      ${strategyExpert}
-      
-      YOUR FINAL TASK:
-      Synthesize these insights with your own analysis to produce the final comprehensive response. 
-      Deliver a single, high-authority output in PROFESSIONAL MARKETING ENGLISH only.
-      
-      ORIGINAL USER REQUEST:
-      ${prompt}
-    `;
-
-    return this.analyzeWithAI(finalPrompt, 'gemini');
-  }
-
-  /**
-   * Perfroms AI analysis using chosen LLM (Claude, ChatGPT, or Gemini)
+   * Performs AI analysis using chosen LLM (Claude, ChatGPT, or Gemini)
    */
   async analyzeWithAI(prompt: string, modelType: 'gemini' | 'openai' | 'anthropic' = 'gemini'): Promise<string> {
     try {
       const isJsonRequest = prompt.toLowerCase().includes('json');
 
+      if (modelType === 'gemini') {
+        throw new Error('Gemini calls from backend are deprecated. Please use the frontend analyzeWithGemini() function to comply with security guidelines.');
+      }
+
       if (modelType === 'openai') {
         const key = process.env.OPENAI_API_KEY;
-        if (!key || key.includes('TODO')) throw new Error('OPENAI_API_KEY is missing or not configured.');
-        const openai = new OpenAI({ apiKey: key.trim().replace(/^["']|["']$/g, '') });
+        if (!key || key.includes('MY_') || key === 'TODO') {
+          throw new Error('OpenAI API Key is missing or invalid in Secrets.');
+        }
+        const openai = new OpenAI({ apiKey: key });
         const response = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [{ role: "user", content: prompt }],
@@ -145,8 +102,10 @@ export class IntelligenceService {
       
       if (modelType === 'anthropic') {
         const key = process.env.ANTHROPIC_API_KEY;
-        if (!key || key.includes('TODO')) throw new Error('ANTHROPIC_API_KEY is missing or not configured.');
-        const anthropic = new Anthropic({ apiKey: key.trim().replace(/^["']|["']$/g, '') });
+        if (!key || key.includes('MY_') || key === 'TODO') {
+          throw new Error('Anthropic API Key is missing or invalid in Secrets.');
+        }
+        const anthropic = new Anthropic({ apiKey: key });
         const response = await anthropic.messages.create({
           model: "claude-3-5-sonnet-latest",
           max_tokens: 4000,
@@ -155,51 +114,18 @@ export class IntelligenceService {
         return (response.content[0] as any).text || '';
       }
 
-      // Default to Gemini
-      let key = process.env.GEMINI_API_KEY;
-      
-      if (!key || key === 'TODO' || key.includes('YOUR_API_KEY')) {
-         key = process.env.GOOGLE_API_KEY || key;
-      }
-
-      if (!key || key === 'TODO' || key.includes('YOUR_API_KEY')) {
-        throw new Error('GEMINI_API_KEY is missing or invalid. Go to Settings > Secrets to add it.');
-      }
-      
-      const sanitizedKey = key.trim().replace(/^["']|["']$/g, '');
-      
-      const genAI = new GoogleGenAI({ apiKey: sanitizedKey });
-      
-      const response = await genAI.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: isJsonRequest ? "application/json" : "text/plain"
-        }
-      });
-      
-      return response.text || '';
+      throw new Error(`Unsupported backend model type: ${modelType}. Please use frontend services for Gemini.`);
 
     } catch (error: any) {
-      console.error(`[Intelligence] AI analysis failed (${modelType}):`, error.message);
-      
-      const errMsg = error.message?.toLowerCase() || '';
-      
-      // Better user-facing error messages
-      if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('too many requests')) {
-        throw new Error(`${modelType.toUpperCase()} Quota exceeded. AI limit reached. Please wait a few minutes or upgrade your plan.`);
+      let message = error.message;
+
+      // Handle specific API key errors from Google SDK
+      if (message.includes('API key not valid') || message.includes('API_KEY_INVALID')) {
+        message = 'Invalid Gemini API Key. Please check the Secrets panel and ensure your key (starting with AIza...) is correctly copied without extra characters.';
       }
-      if (errMsg.includes('400') || errMsg.includes('api key not valid') || errMsg.includes('invalid_argument')) {
-        throw new Error(`${modelType.toUpperCase()} API key is invalid or unauthorized. Please check Settings > Secrets.`);
-      }
-      if (errMsg.includes('401') || errMsg.includes('unauthorized')) {
-        throw new Error(`${modelType.toUpperCase()} Authentication failed. Is the API key correct?`);
-      }
-      if (errMsg.includes('credit balance is too low')) {
-        throw new Error(`${modelType.toUpperCase()} balance is too low. Please add credits to your AI provider account.`);
-      }
-      
-      throw new Error(`AI Analysis Error (${modelType.toUpperCase()}): ${error.message}`);
+
+      console.error(`[Intelligence] AI analysis failed (${modelType}):`, message);
+      throw new Error(message);
     }
   }
 

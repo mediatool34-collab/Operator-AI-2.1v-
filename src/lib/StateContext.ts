@@ -13,4 +13,4 @@ export interface StatePersistenceContextType {
 
 export const StatePersistenceContext = createContext<StatePersistenceContextType | undefined>(undefined);
 
-export const EXPIRATION_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+export const EXPIRATION_TIME = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
