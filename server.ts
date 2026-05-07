@@ -14,6 +14,7 @@ import { IntelligenceService } from './services/intelligenceService.ts';
 
 import { db } from './src/db/index.js';
 import { users } from './src/db/schema.js';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Role, hasPermission } from './auth/permissions.ts';
 
 async function checkWorkspaceAccess(userId: string, workspaceId: string, requiredPermission?: 'connect_accounts' | 'view_data' | 'execute_actions') {
@@ -425,6 +426,16 @@ function validateEnv() {
 
 async function startServer() {
   validateEnv();
+  
+  // Run Drizzle migrations
+  try {
+    console.log('Running database migrations...');
+    await migrate(db, { migrationsFolder: './drizzle' });
+    console.log('Database migrations completed successfully.');
+  } catch (err) {
+    console.error('Failed to run database migrations:', err);
+  }
+
   const app = express();
   const PORT = 3000;
 
