@@ -447,7 +447,7 @@ async function startServer() {
   // Middlewares
   const authenticateUser = (req: any, res: any, next: any) => {
     // Skip auth for health and OAuth routes
-    if (req.path === '/api/health' || req.path.includes('/auth/callback') || req.path.includes('/auth/connect')) return next();
+    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect')) return next();
     
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Unauthorized: Missing User ID' });
@@ -1054,7 +1054,7 @@ async function startServer() {
     const accountId = req.query.accountId as string;
     
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    if (!accountId) return res.json({ campaigns: [] });
+    if (req.query.fromDb === 'true') { const { campaigns: campaignsTable } = await import('./src/db/schema.js'); const dbCamps = await db.select().from(campaignsTable); return res.json({ campaigns: dbCamps }); } if (!accountId) return res.json({ campaigns: [] });
 
     const fetchCampaignsForAccount = async (accId: string, plat: string, tok: string) => {
       try {
