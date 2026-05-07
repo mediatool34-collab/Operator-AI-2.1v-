@@ -1,5 +1,7 @@
 import { ScraperService } from './scraper.ts';
-import { adminDb } from '../firebase-config.ts';
+import { db } from '../src/db/index.js';
+import { optimizationLogs, workspaces } from '../src/db/schema.js';
+import { eq } from 'drizzle-orm';
 import { AdSpyEngine } from '../intel/adSpy.ts';
 import axios from 'axios';
 import OpenAI from 'openai';
@@ -162,38 +164,33 @@ export class IntelligenceService {
   async saveCompletedReport(userId: string, report: any): Promise<any> {
     const domain = report.url ? new URL(report.url).hostname : 'unknown';
     
-    let savedId = null;
+    const savedId = `report_${Date.now()}`;
 
     try {
-      // 1. Persistence to User's private collection
-      const userDoc = await adminDb.collection('users').doc(userId).collection('intelligence_reports').add({
-        ...report,
-        createdAt: new Date(),
-        userId
-      });
-      savedId = userDoc.id;
-      console.log(`[Intelligence] ✅ Saved report ${savedId} for user ${userId}`);
-    } catch (err: any) {
-      console.error(`[Intelligence] ❌ Failed to save to user collection:`, err.message);
-      // If we can't even save to user collection, we might want to throw if savedId is null
-    }
-    
-    try {
-      // 2. Also keep global record for system intelligence
-      await adminDb.collection('system_intel').doc('market').collection('reports').add({
-        ...report,
-        userId,
-        domain,
-        url: report.url,
-        createdAt: new Date()
-      });
-      console.log(`[Intelligence] ✅ Saved report to system_intel`);
-    } catch (err: any) {
-      console.warn(`[Intelligence] ⚠️ Failed to save to system_intel:`, err.message);
-      // Non-critical failure
-    }
+      // Create a default workspace if it doesn't exist for pg schema logs
+      const defaultWorkspaceId = `ws_${userId}`;
+      const existingWorkspace = await db.select().from(workspaces).where(eq(workspaces.id, defaultWorkspaceId)).limit(1);
+      
+      if (existingWorkspace.length === 0) {
+          await db.insert(workspaces).values({
+            id: defaultWorkspaceId,
+            name: `${userId}'s Workspace`,
+            ownerId: userId
+          });
+      }
 
-    if (!savedId) {
+      // We'll log it as an optimization action for tracking
+      await db.insert(optimizationLogs).values({
+        id: savedId,
+        workspaceId: defaultWorkspaceId,
+        action: `SAVE_INTEL_REPORT`,
+        reason: `Report saved for ${domain}`,
+        afterState: report
+      });
+
+      console.log(`[Intelligence] ✅ Saved report ${savedId} for user ${userId} to PostgreSQL`);
+    } catch (err: any) {
+      console.error(`[Intelligence] ❌ Failed to save to PostgreSQL:`, err.message);
       throw new Error('Failed to save intelligence report to database.');
     }
 

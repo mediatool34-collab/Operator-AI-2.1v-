@@ -1,4 +1,6 @@
-import { adminDb } from '../firebase-config.ts';
+import { db } from '../src/db/index.js';
+import { campaigns, campaignMetrics, alerts as alertsTable } from '../src/db/schema.js';
+import { eq, desc } from 'drizzle-orm';
 
 export interface AdMetrics {
   spend: number;
@@ -66,15 +68,17 @@ export class AlertEngine {
       }
     }
 
-    // Store alerts in Firestore
+    // Store alerts in PostgreSQL
     for (const alert of alerts) {
-      const alertsRef = adminDb.collection('workspaces').doc(workspaceId).collection('alerts');
-      await alertsRef.add({
-        ...alert,
-        workspace_id: workspaceId,
-        campaign_id: campaignId,
+      await db.insert(alertsTable).values({
+        id: `alert_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        workspaceId,
+        type: alert.type,
+        severity: alert.severity,
+        details: alert.details,
         status: 'open',
-        created_at: new Date().toISOString()
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
       console.log(`[AlertEngine] ⚠️ Alert triggered: ${alert.type} for workspace ${workspaceId}`);
     }
@@ -86,13 +90,30 @@ export class AlertEngine {
   static async evaluateWorkspace(workspaceId: string) {
     try {
       console.log(`[AlertEngine] 🧐 Evaluating alerts for workspace: ${workspaceId}`);
-      const snapshot = await adminDb.collection('workspaces').doc(workspaceId).collection('ads').get();
       
-      for (const adDoc of snapshot.docs) {
-        const data = adDoc.data();
-        const currentMetrics = data.metrics;
-        if (data.old_metrics) {
-           await this.checkPerformance(workspaceId, data.meta_data.campaign_id, currentMetrics, data.old_metrics);
+      const dbCampaigns = await db.select().from(campaigns).where(eq(campaigns.workspaceId, workspaceId));
+      
+      for (const campaign of dbCampaigns) {
+        // Fetch the last two metrics to compare
+        const metrics = await db.select().from(campaignMetrics)
+                                .where(eq(campaignMetrics.campaignId, campaign.id))
+                                .orderBy(desc(campaignMetrics.date))
+                                .limit(2);
+                                
+        if (metrics.length >= 2) {
+            const current = {
+                spend: metrics[0].spend || 0,
+                impressions: metrics[0].impressions || 0,
+                clicks: metrics[0].clicks || 0,
+                updated_at: metrics[0].date.toISOString()
+            };
+            const previous = {
+                spend: metrics[1].spend || 0,
+                impressions: metrics[1].impressions || 0,
+                clicks: metrics[1].clicks || 0,
+                updated_at: metrics[1].date.toISOString()
+            };
+            await this.checkPerformance(workspaceId, campaign.id, current, previous);
         }
       }
     } catch (error) {

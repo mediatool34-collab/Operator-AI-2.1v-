@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, LogOut, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { logOut, db } from '../lib/firebase';
-import { doc, getDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { logOut } from '../lib/firebase';
 import { handleFirestoreError } from '../lib/firebase';
 
 export function Settings() {
@@ -18,28 +17,13 @@ export function Settings() {
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data?.platform && event.data?.token) {
         if (user) {
           try {
-            const tokenData: any = {
-              platform: event.data.platform,
-              accessToken: event.data.token,
-              updatedAt: serverTimestamp()
-            };
-            if (event.data.refreshToken) {
-              tokenData.refreshToken = event.data.refreshToken;
-            }
-            await setDoc(doc(db, 'users', user.uid, 'tokens', event.data.platform), tokenData);
+            localStorage.setItem(`${event.data.platform}_token`, event.data.token);
             if (event.data.platform === 'meta') setMetaConnected(true);
             if (event.data.platform === 'google') setGoogleConnected(true);
             if (event.data.platform === 'tiktok') setTiktokConnected(true);
             if (event.data.platform === 'snapchat') setSnapchatConnected(true);
           } catch (error: any) {
             console.error(`Error saving ${event.data.platform} token:`, error);
-            if (error.code === 'permission-denied') {
-              try {
-                handleFirestoreError(error, 'write', `users/${user.uid}/tokens/${event.data.platform}`);
-              } catch (e) {
-                console.error('Handled Firestore Error:', e);
-              }
-            }
           }
         }
       } else if (event.data?.type === 'OAUTH_AUTH_ERROR') {
@@ -55,26 +39,12 @@ export function Settings() {
     if (user) {
       const fetchTokens = async () => {
         try {
-          const [metaSnap, googleSnap, tiktokSnap, snapchatSnap] = await Promise.all([
-            getDoc(doc(db, 'users', user.uid, 'tokens', 'meta')),
-            getDoc(doc(db, 'users', user.uid, 'tokens', 'google')),
-            getDoc(doc(db, 'users', user.uid, 'tokens', 'tiktok')),
-            getDoc(doc(db, 'users', user.uid, 'tokens', 'snapchat'))
-          ]);
-
-          if (metaSnap.exists() && metaSnap.data().accessToken) setMetaConnected(true);
-          if (googleSnap.exists() && googleSnap.data().accessToken) setGoogleConnected(true);
-          if (tiktokSnap.exists() && tiktokSnap.data().accessToken) setTiktokConnected(true);
-          if (snapchatSnap.exists() && snapchatSnap.data().accessToken) setSnapchatConnected(true);
+          if (localStorage.getItem('meta_token')) setMetaConnected(true);
+          if (localStorage.getItem('google_token')) setGoogleConnected(true);
+          if (localStorage.getItem('tiktok_token')) setTiktokConnected(true);
+          if (localStorage.getItem('snapchat_token')) setSnapchatConnected(true);
         } catch (err: any) {
           console.error('Error fetching tokens:', err);
-          if (err.code === 'permission-denied') {
-            try {
-              handleFirestoreError(err, 'get', `users/${user.uid}/tokens`);
-            } catch (e) {
-              console.error('Handled Firestore Error:', e);
-            }
-          }
         } finally {
           setLoading(false);
         }
@@ -88,7 +58,7 @@ export function Settings() {
   const handleDisconnect = async (platform: string) => {
     if (!user) return;
     try {
-      await deleteDoc(doc(db, 'users', user.uid, 'tokens', platform));
+      localStorage.removeItem(`${platform}_token`);
       if (platform === 'meta') setMetaConnected(false);
       if (platform === 'google') setGoogleConnected(false);
       if (platform === 'tiktok') setTiktokConnected(false);

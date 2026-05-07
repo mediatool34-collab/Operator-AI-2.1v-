@@ -1,5 +1,6 @@
 import { ScraperService } from '../services/scraper.ts';
-import { adminDb } from '../firebase-config.ts';
+import { db } from '../src/db/index.js';
+import { optimizationLogs } from '../src/db/schema.js';
 
 export interface AdSpyResult {
   id?: string;
@@ -53,8 +54,15 @@ export class AdSpyEngine {
         scraped_at: new Date().toISOString(),
       };
 
-      // Store in DB for historical tracking
-      await adminDb.collection('system_intel').doc('ad_spy').collection('results').add(spyData);
+      // Store in DB for historical tracking - saving as optimization log for now due to lack of a dedicated table in schema
+      await db.insert(optimizationLogs).values({
+        id: `spy_${Date.now()}`,
+        workspaceId: 'system', // Represents system intel
+        action: 'AD_SPY_COMPLETED',
+        reason: `Scraped competitors for: ${searchQuery}`,
+        createdAt: new Date(),
+        afterState: spyData
+      });
       
       console.log(`[AdSpy] ✅ Successfully scraped and analyzed ${ads.length} ads`);
       return spyData;

@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { safeJson } from './utils';
 import { useAuth } from './auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { db, handleFirestoreError } from './firebase';
 
 interface FilterContextType {
   selectedAccountId: string | null;
@@ -67,74 +65,13 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Real-time listeners for tokens
-    const unsubMeta = onSnapshot(doc(db, 'users', user.uid, 'tokens', 'meta'), (docSnap) => {
-      if (docSnap.exists()) setMetaToken(docSnap.data().accessToken);
-      else setMetaToken(null);
-    }, (err) => {
-      console.error('Error fetching meta token:', err);
-      if (err.code === 'permission-denied') {
-        try {
-          handleFirestoreError(err, 'get', `users/${user.uid}/tokens/meta`);
-        } catch (e) {
-          console.error('Handled Firestore Error:', e);
-        }
-      }
-    });
-
-    const unsubGoogle = onSnapshot(doc(db, 'users', user.uid, 'tokens', 'google'), (docSnap) => {
-      if (docSnap.exists()) setGoogleToken(docSnap.data().accessToken);
-      else setGoogleToken(null);
-    }, (err) => {
-      console.error('Error fetching google token:', err);
-      if (err.code === 'permission-denied') {
-        try {
-          handleFirestoreError(err, 'get', `users/${user.uid}/tokens/google`);
-        } catch (e) {
-          console.error('Handled Firestore Error:', e);
-        }
-      }
-    });
-
-    const unsubTiktok = onSnapshot(doc(db, 'users', user.uid, 'tokens', 'tiktok'), (docSnap) => {
-      if (docSnap.exists()) setTiktokToken(docSnap.data().accessToken);
-      else setTiktokToken(null);
-    }, (err) => {
-      console.error('Error fetching tiktok token:', err);
-      if (err.code === 'permission-denied') {
-        try {
-          handleFirestoreError(err, 'get', `users/${user.uid}/tokens/tiktok`);
-        } catch (e) {
-          console.error('Handled Firestore Error:', e);
-        }
-      }
-    });
-
-    const unsubSnapchat = onSnapshot(doc(db, 'users', user.uid, 'tokens', 'snapchat'), (docSnap) => {
-      if (docSnap.exists()) setSnapchatToken(docSnap.data().accessToken);
-      else setSnapchatToken(null);
-    }, (err) => {
-      console.error('Error fetching snapchat token:', err);
-      if (err.code === 'permission-denied') {
-        try {
-          handleFirestoreError(err, 'get', `users/${user.uid}/tokens/snapchat`);
-        } catch (e) {
-          console.error('Handled Firestore Error:', e);
-        }
-      }
-    });
-
-    return () => {
-      unsubMeta();
-      unsubGoogle();
-      unsubTiktok();
-      unsubSnapchat();
-    };
+    setMetaToken(localStorage.getItem('meta_token') || 'local_meta_token');
+    return () => {};
   }, [user]);
 
   // Fetch Meta Profile Info
   useEffect(() => {
-    if (metaToken) {
+    if (metaToken && metaToken !== 'local_meta_token') {
       fetch(`https://graph.facebook.com/me?fields=name,picture.type(large)&access_token=${metaToken}`)
         .then(res => safeJson(res))
         .then(data => {
@@ -163,7 +100,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     if (platform === 'tiktok') currentToken = tiktokToken;
     if (platform === 'snapchat') currentToken = snapchatToken;
 
-    if (currentToken) {
+    if (currentToken && currentToken !== 'local_meta_token') {
       Promise.resolve().then(() => setLoadingAccounts(true));
       fetch(`/api/adaccounts?platform=${platform}`, {
         headers: { 

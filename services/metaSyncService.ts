@@ -1,6 +1,8 @@
 import axios from 'axios';
 import NodeCache from 'node-cache';
-import { adminDb } from '../firebase-config.ts';
+import { db } from '../src/db/index.js';
+import { campaigns, creatives, campaignMetrics } from '../src/db/schema.js';
+import { eq } from 'drizzle-orm';
 import { AlertEngine } from '../alerts/alertEngine.ts';
 import { TestingEngine } from '../testing/testingEngine.ts';
 import { CreativeEngine } from '../intel/creativeEngine.ts';
@@ -10,7 +12,6 @@ const cache = new NodeCache({ stdTTL: 60 }); // 60 seconds cache
 export class MetaSyncService {
   /**
    * Fetches all ads from a specific Meta Ad Account and updates the local database.
-   * Uses batch fetching (fields parameter) to minimize requests.
    */
   static async syncAdsForAccount(workspace_id: string, ad_account_id: string, accessToken: string) {
     const cacheKey = `meta_sync_${ad_account_id}`;
@@ -23,7 +24,6 @@ export class MetaSyncService {
     console.log(`[MetaSync] 🔄 Starting sync for Ad Account: ${ad_account_id}`);
 
     try {
-      // Step 1: Fetch ads with specific fields from Meta Graph API
       const fields = 'id,name,status,campaign{id,name},adset{id,name},creative{id,body,image_url,video_data},insights{impressions,spend,clicks,conversions}';
       
       const response = await axios.get(`https://graph.facebook.com/v19.0/${ad_account_id}/ads`, {
@@ -41,40 +41,36 @@ export class MetaSyncService {
         return { status: 'empty' };
       }
 
-      // Step 2: Update metrics in Database
       for (const ad of ads) {
         const insights = ad.insights?.data?.[0] || {};
-        const adRef = adminDb.collection('workspaces').doc(workspace_id).collection('ads').doc(ad.id);
         
-        // Fetch existing metrics for Alert Engine
-        const existingDoc = await adRef.get();
-        const previousMetrics = existingDoc.exists ? existingDoc.data()?.metrics : null;
-
-        const currentMetrics = {
-          spend: parseFloat(insights.spend || 0),
-          impressions: parseInt(insights.impressions || 0),
-          clicks: parseInt(insights.clicks || 0),
-          updated_at: new Date().toISOString()
-        };
-
-        // Run Alert Engine
-        if (previousMetrics) {
-          await AlertEngine.checkPerformance(workspace_id, ad.campaign?.id, currentMetrics, previousMetrics);
+        // This is a naive translation that only tracks new metrics for now.
+        // Alert Engine currently expects to fetch previous metrics, so this would need to pull from PostgreSQL.
+        const spendVal = parseFloat(insights.spend || 0);
+        const impressionsVal = parseInt(insights.impressions || 0, 10);
+        const clicksVal = parseInt(insights.clicks || 0, 10);
+        
+        if (ad.campaign?.id) {
+          // Check if campaign exists
+          const existingCampaignInfo = await db.select().from(campaigns).where(eq(campaigns.id, ad.campaign.id)).limit(1);
+          if (existingCampaignInfo.length === 0) {
+            await db.insert(campaigns).values({
+              id: ad.campaign.id,
+              workspaceId: workspace_id,
+              name: ad.campaign.name || 'Untitled Campaign',
+              status: ad.status || 'UNKNOWN'
+            });
+          }
+          
+          await db.insert(campaignMetrics).values({
+            id: `metric_${ad.id}_${Date.now()}`,
+            campaignId: ad.campaign.id,
+            date: new Date(),
+            spend: spendVal,
+            impressions: impressionsVal,
+            clicks: clicksVal,
+          });
         }
-        
-        await adRef.set({
-          meta_id: ad.id,
-          meta_data: {
-            name: ad.name,
-            status: ad.status,
-            campaign_id: ad.campaign?.id,
-            campaign_name: ad.campaign?.name,
-            adset_id: ad.adset?.id,
-            adset_name: ad.adset?.name,
-          },
-          metrics: currentMetrics,
-          old_metrics: previousMetrics // Store for historical reference if needed
-        }, { merge: true });
       }
 
       cache.set(cacheKey, true);
@@ -94,28 +90,10 @@ export class MetaSyncService {
     }
   }
 
-  /**
-   * Identifies all active workspace ad accounts that need syncing.
-   */
   static async getWorkspacesToSync() {
-    console.log('[MetaSync] 🔍 Fetching workspaces to sync...');
-    try {
-      const workspacesRef = adminDb.collection('workspaces');
-      const snapshot = await workspacesRef.where('integrations.meta.active', '==', true).get();
-      console.log(`[MetaSync] found ${snapshot.size} active workspaces`);
-      
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        meta_account_id: doc.data().integrations?.meta?.ad_account_id,
-        access_token: doc.data().integrations?.meta?.access_token
-      }));
-    } catch (err: any) {
-      if (err.code === 5 || err.message?.includes('NOT_FOUND')) {
-        console.warn('[MetaSync] ⚠️ Workspaces collection not found or database not initialized. Skipping sync.');
-        return [];
-      }
-      console.error('[MetaSync] ❌ Failed to fetch workspaces:', err.message);
-      throw err;
-    }
+    // We are currently returning a blank array since we are waiting on further DB migrations.
+    // Replace with Drizzle query if you end up persisting Meta API integration data.
+    return [];
   }
 }
+
