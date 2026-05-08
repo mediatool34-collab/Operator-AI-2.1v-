@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "tsx server.ts",
-    "build": "vite build",
+    "start": "node dist/server.js",
+    "build": "vite build && esbuild server.ts --platform=node --target=node20 --outdir=dist --bundle --external:express --external:pg --external:drizzle-orm --external:firebase-admin --format=esm",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
