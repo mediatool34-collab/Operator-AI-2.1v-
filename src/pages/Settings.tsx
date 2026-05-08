@@ -70,27 +70,37 @@ export function Settings() {
 
   const handleConnect = async (platform: string) => {
     try {
-      const response = await fetch(`/api/auth/connect/${platform}?uid=${user?.uid}&json=true`);
-      const contentType = response.headers.get('content-type');
-      
-      if (!response.ok) {
-        const text = await response.text();
-        console.error(`Connect Error [${response.status}]:`, text);
-        try {
-          const json = JSON.parse(text);
-          throw new Error(json.error || text);
-        } catch (e) {
-          throw new Error(`Failed to connect ${platform} (Status: ${response.status})`);
+      let url = '';
+      if (platform === 'meta') {
+        const clientId = import.meta.env.VITE_META_CLIENT_ID || '1984316142437697';
+        const redirectUri = `${window.location.origin}/api/meta-callback`;
+        const state = user?.uid || 'guest';
+        url = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=ads_management,ads_read,business_management`;
+      } else {
+        const response = await fetch(`/api/auth/connect/${platform}?uid=${user?.uid}&json=true`);
+        const contentType = response.headers.get('content-type');
+        
+        if (!response.ok) {
+          const text = await response.text();
+          console.error(`Connect Error [${response.status}]:`, text);
+          try {
+            const json = JSON.parse(text);
+            throw new Error(json.error || text);
+          } catch (e) {
+            throw new Error(`Failed to connect ${platform} (Status: ${response.status})`);
+          }
         }
+
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error(`Invalid Content-Type [${contentType}]:`, text);
+          throw new Error(`Server returned non-JSON response for ${platform}. Check console for details.`);
+        }
+
+        const data = await response.json();
+        url = data.url;
       }
 
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error(`Invalid Content-Type [${contentType}]:`, text);
-        throw new Error(`Server returned non-JSON response for ${platform}. Check console for details.`);
-      }
-
-      const { url } = await response.json();
       window.open(url, 'oauth_popup', 'width=600,height=700');
     } catch (error: any) {
       console.error(`Error connecting ${platform}:`, error);
