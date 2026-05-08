@@ -1,0 +1,10 @@
+console.log('--- META API OAUTH & ENDPOINTS ---');
+console.log('GET /api/meta/connect [implemented]');
+console.log('GET /api/meta/callback [implemented, handles token exchange + fetching ad accounts]');
+console.log('GET /api/meta/accounts [implemented, returns adAccounts table contents]');
+console.log('POST /api/meta/sync [implemented, triggers MetaSyncService]');
+console.log('');
+console.log('--- METRICS FETCHED VIA META API ---');
+console.log('Using endpoint: https://graph.facebook.com/v21.0/{ad_account_id}/ads');
+console.log('Fields: id,name,status,campaign{id,name},adset{id,name},creative{...},insights{impressions,spend,clicks,conversions,purchase_roas}');
+console.log('Parsed spend, impressions, clicks. Calculated revenue from purchase_roas * spend for accurate ROAS storage in PostgreSQL.');

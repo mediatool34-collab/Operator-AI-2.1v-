@@ -24,9 +24,9 @@ export class MetaSyncService {
     console.log(`[MetaSync] 🔄 Starting sync for Ad Account: ${ad_account_id}`);
 
     try {
-      const fields = 'id,name,status,campaign{id,name},adset{id,name},creative{id,body,image_url,video_data},insights{impressions,spend,clicks,conversions}';
+      const fields = 'id,name,status,campaign{id,name},adset{id,name},creative{id,body,image_url,video_data},insights{impressions,spend,clicks,conversions,purchase_roas}';
       
-      const response = await axios.get(`https://graph.facebook.com/v19.0/${ad_account_id}/ads`, {
+      const response = await axios.get(`https://graph.facebook.com/v21.0/${ad_account_id}/ads`, {
         params: {
           fields,
           access_token: accessToken,
@@ -50,6 +50,13 @@ export class MetaSyncService {
         const impressionsVal = parseInt(insights.impressions || 0, 10);
         const clicksVal = parseInt(insights.clicks || 0, 10);
         
+        let roasVal = 0;
+        if (insights.purchase_roas && Array.isArray(insights.purchase_roas)) {
+          const roasObj = insights.purchase_roas.find((r: any) => r.action_type === 'omni_purchase') || insights.purchase_roas[0];
+          roasVal = parseFloat(roasObj?.value || 0);
+        }
+        const revenueVal = spendVal * roasVal;
+        
         if (ad.campaign?.id) {
           // Check if campaign exists
           const existingCampaignInfo = await db.select().from(campaigns).where(eq(campaigns.id, ad.campaign.id)).limit(1);
@@ -69,6 +76,7 @@ export class MetaSyncService {
             spend: spendVal,
             impressions: impressionsVal,
             clicks: clicksVal,
+            revenue: revenueVal,
           });
         }
       }

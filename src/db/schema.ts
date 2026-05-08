@@ -68,3 +68,15 @@ export const optimizationLogs = pgTable('optimization_logs', {
   afterState: jsonb('after_state'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const adAccounts = pgTable('ad_accounts', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').references(() => workspaces.id),
+  adAccountId: text('ad_account_id').notNull(),
+  platform: text('platform').notNull(),
+  name: text('name'),
+  accessToken: text('access_token').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+

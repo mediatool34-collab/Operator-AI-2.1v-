@@ -447,7 +447,8 @@ async function startServer() {
   // Middlewares
   const authenticateUser = (req: any, res: any, next: any) => {
     // Skip auth for health and OAuth routes
-    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect')) return next();
+    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect') || req.originalUrl.includes('/api/meta/callback')) return next();
+
     
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Unauthorized: Missing User ID' });
@@ -487,7 +488,7 @@ async function startServer() {
         const msg = 'META_CLIENT_ID or META_APP_ID not configured';
         return isJson ? res.status(400).json({ error: msg }) : res.status(400).send(msg);
       }
-      authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=ads_management,ads_read`;
+      authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=ads_management,ads_read,business_management`;
     }
     
     else if (platform === 'google') {
@@ -759,7 +760,35 @@ async function startServer() {
         const tokenData = await tokenResponse.json();
         console.log('Token response received:', tokenData.access_token ? 'Success' : 'Error');
 
+
         if (tokenData.access_token) {
+          // Fetch ad accounts and save to postgres
+          try {
+            const { workspaces, adAccounts } = await import('./src/db/schema.js');
+            const { eq } = await import('drizzle-orm');
+            const userWs = await db.select().from(workspaces).where(eq(workspaces.ownerId, uid)).limit(1);
+            if (userWs.length > 0) {
+              const wsId = userWs[0].id;
+              const accountsRes = await fetch(`https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_id&access_token=${tokenData.access_token}`);
+              const accountsData = await accountsRes.json();
+              if (accountsData.data && accountsData.data.length > 0) {
+                // Save them
+                for (const acc of accountsData.data) {
+                  await db.insert(adAccounts).values({
+                    id: `${platform}_${acc.id}_${Date.now()}`,
+                    workspaceId: wsId,
+                    adAccountId: acc.id,
+                    platform: 'meta',
+                    name: acc.name || `Ad Account ${acc.account_id}`,
+                    accessToken: tokenData.access_token // in reality should encrypt
+                  });
+                }
+              }
+            }
+          } catch (err: any) {
+            console.error('Failed to save to postgres', err);
+          }
+
           // Send success message to parent window and close popup
           return res.send(`
             <html>
@@ -974,6 +1003,136 @@ async function startServer() {
     } catch (error) {
       console.error('OAuth callback error:', error);
       res.redirect('/dashboard?error=auth_failed');
+    }
+  });
+
+  app.get('/api/meta/accounts', async (req: any, res) => {
+    const userId = req.userId;
+    try {
+      const { workspaces, adAccounts } = await import('./src/db/schema.js');
+      const { eq, and } = await import('drizzle-orm');
+      const userWs = await db.select().from(workspaces).where(eq(workspaces.ownerId, userId)).limit(1);
+      
+      if (!userWs.length) return res.json({ accounts: [] });
+      const wsId = userWs[0].id;
+      
+      const accounts = await db.select().from(adAccounts).where(
+        and(eq(adAccounts.workspaceId, wsId), eq(adAccounts.platform, 'meta'))
+      );
+      
+      res.json({ accounts });
+    } catch (error) {
+      console.error('Error fetching meta accounts:', error);
+      res.status(500).json({ error: 'Failed to fetch meta accounts' });
+    }
+  });
+
+  // Explicit Meta routes
+  app.get('/api/meta/connect', (req, res) => {
+    const appUrl = (process.env.APP_URL || '').replace(/\/$/, '');
+    const redirectUri = `${appUrl}/api/meta/callback`;
+    const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
+    const uid = req.query.uid || req.userId || 'default_uid';
+    const state = Buffer.from(JSON.stringify({ uid, platform: 'meta' })).toString('base64');
+    
+    if (!clientId) return res.status(400).send('META_CLIENT_ID not configured');
+    
+    const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=ads_management,ads_read,business_management`;
+    if (req.query.json === 'true') {
+      return res.json({ url: authUrl });
+    }
+    res.redirect(authUrl);
+  });
+
+  app.get('/api/meta/callback', async (req, res) => {
+    const { code, state } = req.query;
+    if (!code || !state) return res.status(400).send('No code or state');
+    
+    try {
+      const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
+      const { uid } = decodedState;
+      const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
+      const clientSecret = process.env.META_CLIENT_SECRET || process.env.META_APP_SECRET;
+      const appUrl = (process.env.APP_URL || '').replace(/\/$/, '');
+      const redirectUri = `${appUrl}/api/meta/callback`;
+
+      const tokenResponse = await fetch(`https://graph.facebook.com/v21.0/oauth/access_token?client_id=${clientId}&redirect_uri=${redirectUri}&client_secret=${clientSecret}&code=${code}`);
+      const tokenData = await tokenResponse.json();
+
+      if (tokenData.access_token) {
+        // Fetch ad accounts and save to postgres
+        try {
+          const { workspaces, adAccounts } = await import('./src/db/schema.js');
+          const { eq } = await import('drizzle-orm');
+          const userWs = await db.select().from(workspaces).where(eq(workspaces.ownerId, uid)).limit(1);
+          if (userWs.length > 0) {
+            const wsId = userWs[0].id;
+            const accountsRes = await fetch(`https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_id&access_token=${tokenData.access_token}`);
+            const accountsData = await accountsRes.json();
+            if (accountsData.data && accountsData.data.length > 0) {
+              for (const acc of accountsData.data) {
+                await db.insert(adAccounts).values({
+                  id: `meta_${acc.id}_${Date.now()}`,
+                  workspaceId: wsId,
+                  adAccountId: acc.id,
+                  platform: 'meta',
+                  name: acc.name || `Ad Account ${acc.account_id}`,
+                  accessToken: tokenData.access_token
+                });
+              }
+            }
+          }
+        } catch (err: any) {
+          console.error('Failed to save to postgres', err);
+        }
+
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', platform: 'meta', token: '${tokenData.access_token}' }, '*');
+                  window.close();
+                } else {
+                  window.location.href = '/dashboard?connected=meta&token=${tokenData.access_token}';
+                }
+              </script>
+              <p>Meta linkage successful. This window should close automatically.</p>
+            </body>
+          </html>
+        `);
+      } else {
+        return res.redirect('/dashboard?error=token_failed');
+      }
+    } catch (e) {
+      console.error(e);
+      res.redirect('/dashboard?error=auth_failed');
+    }
+  });
+
+  app.post('/api/meta/sync', async (req: any, res) => {
+    const userId = req.userId;
+    const { adAccountId } = req.body;
+    try {
+      const { workspaces, adAccounts } = await import('./src/db/schema.js');
+      const { eq, and } = await import('drizzle-orm');
+      
+      const userWs = await db.select().from(workspaces).where(eq(workspaces.ownerId, userId)).limit(1);
+      if (!userWs.length) return res.status(404).json({ error: 'No workspace' });
+      
+      const accountQuery = await db.select().from(adAccounts).where(
+        and(eq(adAccounts.workspaceId, userWs[0].id), eq(adAccounts.adAccountId, adAccountId))
+      ).limit(1);
+      
+      if (!accountQuery.length) return res.status(404).json({ error: 'Ad account not found' });
+      
+      const MetaSyncService = (await import('./services/metaSyncService.js')).MetaSyncService;
+      const result = await MetaSyncService.syncAdsForAccount(userWs[0].id, adAccountId, accountQuery[0].accessToken);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error triggering meta sync:', error);
+      res.status(500).json({ error: 'Failed to sync meta ads', details: error.message });
     }
   });
 
