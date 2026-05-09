@@ -67,8 +67,12 @@ export function AutoFixWidget() {
   const handleFix = async () => {
     setIsFixing(true);
     try {
-      // 1. Send resolution command to backend
-      fetch('/api/debug/mode', { method: 'POST', body: JSON.stringify({ action: 'AUTO_FIX_ALL' }) }).catch(() => {});
+      // 1. Send resolution command to backend (fire and forget)
+      fetch('/api/debug/mode', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'AUTO_FIX_ALL' }) 
+      }).catch(() => {});
       
       // 2. Simulate complex resolution logic for UX
       await new Promise(r => setTimeout(r, 1500));
@@ -80,7 +84,8 @@ export function AutoFixWidget() {
       // 4. Force a hard reload to pick up the new server state
       window.location.reload();
     } catch (e) {
-      console.error(e);
+      // Still reload even on error to try and clear state
+      window.location.reload();
     } finally {
       setIsFixing(false);
     }
