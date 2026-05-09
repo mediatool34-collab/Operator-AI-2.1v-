@@ -8,6 +8,7 @@
     { "source": "/api/ads", "destination": "/api/meta-proxy" },
     { "source": "/api/insights", "destination": "/api/meta-proxy" },
     { "source": "/api/intelligence/(.*)", "destination": "/api/intelligence" },
+    { "source": "/api/analysis", "destination": "/api/intelligence" },
     { "source": "/api/(.*)", "destination": "https://anty-ads-operator-production.up.railway.app/api/$1" },
     {
       "source": "/(.*)",
