@@ -233,7 +233,10 @@ export function Campaigns() {
       // Log to Intelligence Engine
       fetch('/api/intelligence/log-action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': user!.uid
+        },
         body: JSON.stringify({
           type: 'OPTIMIZATION',
           payload: { campaignId: itemId, campaignName: item.name, action: action.toUpperCase(), reason }

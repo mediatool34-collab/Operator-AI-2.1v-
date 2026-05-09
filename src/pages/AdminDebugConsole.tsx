@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
 import { Activity, AlertOctagon, Terminal, Server, RotateCcw, Cpu } from 'lucide-react';
+import { useAuth } from '../lib/auth';
 
 interface LogsData {
   apiLogs: any[];
@@ -15,13 +15,17 @@ interface LogsData {
 }
 
 export function AdminDebugConsole() {
+  const { user } = useAuth();
   const [logs, setLogs] = useState<LogsData | null>(null);
   const [activeTab, setActiveTab] = useState<'errors' | 'api' | 'queue'>('errors');
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async () => {
+    if (!user) return;
     try {
-      const res = await fetch('/api/debug/logs');
+      const res = await fetch('/api/debug/logs', {
+        headers: { 'x-user-id': user.uid }
+      });
       const data = await res.json();
       setLogs(data);
     } catch (err) {
@@ -43,7 +47,10 @@ export function AdminDebugConsole() {
     try {
       await fetch('/api/debug/mode', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': user!.uid
+        },
         body: JSON.stringify({ enabled: newState })
       });
       fetchLogs();
