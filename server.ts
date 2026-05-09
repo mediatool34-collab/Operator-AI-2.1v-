@@ -8,7 +8,6 @@ import path from 'path';
 import './queue/worker.ts';
 import { startMetaSyncScheduler } from './scheduler/metaSync.ts';
 import { ScraperService } from './services/scraper.ts';
-import alertsRouter from './api/alerts.ts';
 import { AdSpyEngine } from './intel/adSpy.ts';
 import { IntelligenceService } from './services/intelligenceService.ts';
 import { logger } from './services/logger.ts';
@@ -2016,7 +2015,8 @@ async function startServer() {
     }
   });
 
-  app.use('/api/alerts', alertsRouter);
+  // Removed alertsRouter due to deprecation
+
 
   // --- Real Intelligence Data (Firestore) ---
   app.get('/api/intelligence/tests', async (req, res) => {
