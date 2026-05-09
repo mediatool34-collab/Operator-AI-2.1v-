@@ -127,12 +127,17 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } else {
+          console.warn('No accounts returned from API:', data);
           setAdAccounts([unifiedAccount]);
           setSelectedAccountId('all');
+          if (data.error || (data.accounts && data.accounts.length === 0)) {
+            // Optional: You could set an error state here to show in the UI
+          }
         }
       })
       .catch(err => {
         console.error('Error fetching ad accounts:', err);
+        alert('Meta Data Error: ' + err.message);
         setAdAccounts([{ id: 'all', name: 'Unified Account View', account_id: 'ALL_ACCOUNTS' }]);
         setSelectedAccountId('all');
       })
