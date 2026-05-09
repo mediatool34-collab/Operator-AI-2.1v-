@@ -11,6 +11,8 @@ import { ScraperService } from './services/scraper.ts';
 import alertsRouter from './api/alerts.ts';
 import { AdSpyEngine } from './intel/adSpy.ts';
 import { IntelligenceService } from './services/intelligenceService.ts';
+import { logger } from './services/logger.ts';
+import { systemMonitor } from './services/systemMonitor.ts';
 
 import { db } from './src/db/index.js';
 import { users } from './src/db/schema.js';
@@ -24,6 +26,7 @@ async function checkWorkspaceAccess(userId: string, workspaceId: string, require
 async function startApp() {
   try {
     startMetaSyncScheduler();
+    systemMonitor.start();
     console.log('[System] Background processes initialized');
   } catch (err: any) {
     console.error('[System] Failed to start background processes:', err.message);
@@ -175,6 +178,12 @@ function isMetaFallbackError(error: any) {
 }
 
 function handleMetaError(res: any, error: any, fallback: () => any) {
+  logger.logError({
+    type: 'API_FAILURE',
+    message: `Meta API Error: ${error.message || 'Unknown'}`,
+    context: { code: error?.code, subcode: error?.error_subcode }
+  });
+
   if (!isMetaFallbackError(error)) {
     console.error('Meta API Error:', error);
   } else {
@@ -183,6 +192,8 @@ function handleMetaError(res: any, error: any, fallback: () => any) {
   
   const isRateLimit = error.code === 17 || error.code === 613 || error.message?.toLowerCase().includes('limit reached') || error.message?.toLowerCase().includes('rate exceeded');
   if (isRateLimit) {
+    // Auto-fix strategy for rate limits
+    logger.logError({ type: 'API_FAILURE', message: 'Meta Rate limit hit, initiating fallback/retry strategy.' });
     return res.status(429).json({ error: 'Meta API rate limit reached. Please try again in a few minutes.' });
   }
   
@@ -444,6 +455,23 @@ async function startServer() {
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use(cookieParser());
 
+  // Observability Middleware
+  app.use((req: any, res: any, next: any) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      logger.logApiRequest({
+        method: req.method,
+        endpoint: req.originalUrl,
+        statusCode: res.statusCode,
+        executionTimeMs: duration,
+        responseSize: Number(res.getHeader('content-length')) || 0,
+        failedValidation: res.statusCode >= 400 && res.statusCode < 500
+      });
+    });
+    next();
+  });
+
   // Middlewares
   const authenticateUser = (req: any, res: any, next: any) => {
     // Skip auth for health and OAuth routes
@@ -681,16 +709,32 @@ async function startServer() {
   });
 
   // API Routes
-  app.get('/api/health', async (req, res) => {
-    let dbStatus = 'disconnected';
-    try {
-      await db.execute('SELECT 1');
-      dbStatus = 'connected';
-    } catch (e) {
-      console.error('DB connection failed', e);
-    }
-    
-    res.json({ status: 'ok', db: dbStatus });
+  app.get('/api/system/health', (req, res) => {
+    res.json(systemMonitor.getHealth());
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.json(systemMonitor.getHealth());
+  });
+
+  app.get('/api/debug/logs', (req, res) => {
+    res.json(logger.getLogs());
+  });
+
+  app.post('/api/debug/mode', (req, res) => {
+    const { enabled } = req.body;
+    logger.setDevMode(!!enabled);
+    res.json({ success: true, devMode: logger.devMode });
+  });
+
+  app.post('/api/debug/log-error', (req, res) => {
+    logger.logError({
+      type: 'FRONTEND_CRASH',
+      message: req.body.message || 'Frontend Crash',
+      stack: req.body.stack,
+      context: req.body.context
+    });
+    res.json({ success: true });
   });
 
   app.get('/api/test-db', async (req, res) => {
@@ -2223,6 +2267,18 @@ async function startServer() {
       console.error('[Intelligence] Spy failed:', error);
       res.status(500).json({ error: error.message || 'Operation failed' });
     }
+  });
+
+  // Global Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    logger.logError({
+      type: 'BACKEND_CRASH',
+      message: err.message || 'Unhandled Express error',
+      stack: err.stack,
+      context: { url: req.originalUrl, method: req.method }
+    });
+    console.error('Unhandled Error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   });
 
   // Vite middleware for development

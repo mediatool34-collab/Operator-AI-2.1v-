@@ -24,6 +24,8 @@ import { LogIn } from 'lucide-react';
 import { signInWithGoogle } from './lib/firebase';
 
 import { PageUnderConstruction } from './components/PageUnderConstruction';
+import { AdminDebugConsole } from './pages/AdminDebugConsole';
+import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -62,6 +64,7 @@ export default function App() {
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: "dashboard", element: <Dashboard /> },
         { path: "admin", element: <Admin /> },
+        { path: "admin/debug", element: <AdminDebugConsole /> },
         { path: "ad-spy", element: <LiveAdSpy /> },
         { path: "creatives", element: <Creatives /> },
         { path: "campaigns", element: <Campaigns /> },
@@ -89,13 +92,15 @@ export default function App() {
   }), []);
 
   return (
-    <AuthProvider>
-      <StatePersistenceProvider>
-        <FilterProvider>
-          <RouterProvider router={router} />
-        </FilterProvider>
-      </StatePersistenceProvider>
-    </AuthProvider>
+    <GlobalErrorBoundary>
+      <AuthProvider>
+        <StatePersistenceProvider>
+          <FilterProvider>
+            <RouterProvider router={router} />
+          </FilterProvider>
+        </StatePersistenceProvider>
+      </AuthProvider>
+    </GlobalErrorBoundary>
   );
 }
 
