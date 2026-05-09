@@ -7,7 +7,7 @@
     "dev": "tsx server.ts",
     "start": "node dist/server.js",
     "build": "vite build && npm run build:server",
-    "build:server": "esbuild server.ts --platform=node --target=node20 --outdir=dist --bundle --external:express --external:pg --external:drizzle-orm --external:firebase-admin --external:lightningcss --format=esm",
+    "build:server": "esbuild server.ts --platform=node --target=node20 --outdir=dist --bundle --packages=external --format=esm",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
