@@ -55,7 +55,10 @@ export function ExecutionEngine() {
         // Send to analysis engine
         const analysisRes = await fetch('/api/analysis', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
           body: JSON.stringify({ items: combinedData })
         });
         const analysisData = await safeJson(analysisRes);
