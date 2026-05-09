@@ -772,8 +772,13 @@ async function startServer() {
     }
 
     try {
-      const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
-      const { uid } = decodedState;
+      let uid = 'guest';
+      try {
+        const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
+        uid = decodedState.uid || state as string;
+      } catch (e) {
+        uid = state as string;
+      }
 
       if (platform === 'meta') {
         const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
