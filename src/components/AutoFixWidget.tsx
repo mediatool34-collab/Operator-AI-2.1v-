@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { XCircle, Wrench, X, RefreshCw } from 'lucide-react';
+import { XCircle, Wrench, X, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export function AutoFixWidget() {
   const [errors, setErrors] = useState<{ id: string, message: string, type: string }[]>([]);
   const [isFixing, setIsFixing] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [fixProgress, setFixProgress] = useState(0);
 
   useEffect(() => {
     // Intercept global fetch
