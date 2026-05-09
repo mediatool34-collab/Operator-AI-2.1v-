@@ -73,7 +73,7 @@ export function Settings() {
       let url = '';
       if (platform === 'meta') {
         const clientId = import.meta.env.VITE_META_CLIENT_ID || '1984316142437697';
-        const redirectUri = `${window.location.origin}/api/meta-callback`;
+        const redirectUri = `${window.location.origin}/api/auth/callback/meta`;
         const state = user?.uid || 'guest';
         url = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=ads_management,ads_read,business_management`;
       } else {

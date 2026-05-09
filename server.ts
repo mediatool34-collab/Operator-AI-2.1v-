@@ -476,7 +476,7 @@ async function startServer() {
   // Middlewares
   const authenticateUser = (req: any, res: any, next: any) => {
     // Skip auth for health and OAuth routes
-    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect') || req.originalUrl.includes('/api/meta/callback')) return next();
+    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect') || req.originalUrl.includes('/meta-callback')) return next();
 
     
     const userId = req.headers['x-user-id'];
