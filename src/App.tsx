@@ -26,6 +26,7 @@ import { signInWithGoogle } from './lib/firebase';
 import { PageUnderConstruction } from './components/PageUnderConstruction';
 import { AdminDebugConsole } from './pages/AdminDebugConsole';
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
+import { AutoFixWidget } from './components/AutoFixWidget';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -93,6 +94,7 @@ export default function App() {
 
   return (
     <GlobalErrorBoundary>
+      <AutoFixWidget />
       <AuthProvider>
         <StatePersistenceProvider>
           <FilterProvider>
