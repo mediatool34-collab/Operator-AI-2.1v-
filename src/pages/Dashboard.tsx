@@ -301,14 +301,16 @@ export function Dashboard() {
     const token = getToken();
     const headers = {
       'Content-Type': 'application/json',
-      'x-user-id': user.uid,
-      ...(token ? { [`x-${platform}-token`]: token } : {})
+      'x-user-id': user.uid
     };
 
     try {
       const payload: any = {
         campaignId: itemData.id,
-        platform
+        platform,
+        metaToken: token || '',
+        snapchatToken: token || '',
+        tiktokToken: token || ''
       };
 
       if (itemAnalysis.decision === 'SCALE') {
@@ -321,7 +323,7 @@ export function Dashboard() {
          payload.status = itemData.status; // No change but triggers log
       }
 
-      const res = await fetch('/api/campaigns/update', {
+      const res = await fetch('/api/campaigns/action', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)

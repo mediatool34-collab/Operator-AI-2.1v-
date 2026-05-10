@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth } from './firebase.ts';
-import { getRedirectResult } from 'firebase/auth';
 
 interface AuthContextType {
   user: any | null;
@@ -14,11 +13,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle redirect result
-    getRedirectResult(auth).catch((error) => {
-      console.error("Error handling redirect result", error);
-    });
-
+    // Setup Mock Auth
     const unsubscribe = auth.onAuthStateChanged((firebaseUser: any) => {
       setUser(firebaseUser);
       setLoading(false);

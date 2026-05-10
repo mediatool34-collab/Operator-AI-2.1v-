@@ -17,6 +17,7 @@ import { Settings } from './pages/Settings';
 import { DiagnosisEngine } from './pages/DiagnosisEngine';
 import { MarketIntelligence } from './pages/MarketIntelligence';
 import { PreFunnelIntelligence } from './pages/PreFunnelIntelligence';
+import { SocialIntelligenceHub } from './pages/SocialIntelligenceHub';
 import { LiveAdSpy } from './pages/LiveAdSpy';
 import { SystemIntelligence } from './pages/SystemIntelligence';
 import { BudgetPlanner } from './pages/BudgetPlanner';
@@ -24,9 +25,6 @@ import { LogIn } from 'lucide-react';
 import { signInWithGoogle } from './lib/firebase';
 
 import { PageUnderConstruction } from './components/PageUnderConstruction';
-import { AdminDebugConsole } from './pages/AdminDebugConsole';
-import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
-import { AutoFixWidget } from './components/AutoFixWidget';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -65,7 +63,6 @@ export default function App() {
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: "dashboard", element: <Dashboard /> },
         { path: "admin", element: <Admin /> },
-        { path: "admin/debug", element: <AdminDebugConsole /> },
         { path: "ad-spy", element: <LiveAdSpy /> },
         { path: "creatives", element: <Creatives /> },
         { path: "campaigns", element: <Campaigns /> },
@@ -74,6 +71,7 @@ export default function App() {
         { path: "funnel", element: <DiagnosisEngine /> },
         { path: "automation", element: <ExecutionEngine /> },
         { path: "market", element: <MarketIntelligence /> },
+        { path: "social-intel", element: <SocialIntelligenceHub /> },
         { path: "strategy", element: <Strategy /> },
         { path: "pre-funnel", element: <PreFunnelIntelligence /> },
         { path: "logs", element: <OptimizationLogs /> },
@@ -93,16 +91,13 @@ export default function App() {
   }), []);
 
   return (
-    <GlobalErrorBoundary>
-      <AutoFixWidget />
-      <AuthProvider>
-        <StatePersistenceProvider>
-          <FilterProvider>
-            <RouterProvider router={router} />
-          </FilterProvider>
-        </StatePersistenceProvider>
-      </AuthProvider>
-    </GlobalErrorBoundary>
+    <AuthProvider>
+      <StatePersistenceProvider>
+        <FilterProvider>
+          <RouterProvider router={router} />
+        </FilterProvider>
+      </StatePersistenceProvider>
+    </AuthProvider>
   );
 }
 

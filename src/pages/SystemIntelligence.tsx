@@ -1,21 +1,16 @@
+import React, { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Zap, BrainCircuit, RefreshCw, ToggleLeft, ToggleRight, Wrench } from 'lucide-react';
-import { useAuth } from '../lib/auth';
 import { cn, safeJson } from '../lib/utils';
 
 export function SystemIntelligence() {
-  const { user } = useAuth();
   const [data, setData] = useState<any>(null);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
 
   const fetchStatus = async () => {
-    if (!user) return;
     try {
-      const res = await fetch('/api/intelligence/status', {
-        headers: { 'x-user-id': user.uid }
-      });
+      const res = await fetch('/api/intelligence/status');
       const json = await safeJson(res);
       setData(json);
     } catch (err: any) {
@@ -37,10 +32,7 @@ export function SystemIntelligence() {
     try {
       const res = await fetch('/api/intelligence/toggle', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !data.autoOptimizationEnabled })
       });
       const json = await safeJson(res);

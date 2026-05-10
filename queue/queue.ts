@@ -43,6 +43,10 @@ if (isRedisAvailable) {
     },
   });
 
+  queueInstance.on('error', (err: any) => {
+    console.error('[Queue Instance] Error:', err.message);
+  });
+
   connection.on('error', (err) => {
     console.error('[Queue] Redis Connection Error:', err.message);
   });

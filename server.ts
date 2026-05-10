@@ -8,10 +8,9 @@ import path from 'path';
 import './queue/worker.ts';
 import { startMetaSyncScheduler } from './scheduler/metaSync.ts';
 import { ScraperService } from './services/scraper.ts';
+import alertsRouter from './api/alerts.ts';
 import { AdSpyEngine } from './intel/adSpy.ts';
 import { IntelligenceService } from './services/intelligenceService.ts';
-import { logger } from './services/logger.ts';
-import { systemMonitor } from './services/systemMonitor.ts';
 
 import { db } from './src/db/index.js';
 import { users } from './src/db/schema.js';
@@ -25,7 +24,6 @@ async function checkWorkspaceAccess(userId: string, workspaceId: string, require
 async function startApp() {
   try {
     startMetaSyncScheduler();
-    systemMonitor.start();
     console.log('[System] Background processes initialized');
   } catch (err: any) {
     console.error('[System] Failed to start background processes:', err.message);
@@ -177,12 +175,6 @@ function isMetaFallbackError(error: any) {
 }
 
 function handleMetaError(res: any, error: any, fallback: () => any) {
-  logger.logError({
-    type: 'API_FAILURE',
-    message: `Meta API Error: ${error.message || 'Unknown'}`,
-    context: { code: error?.code, subcode: error?.error_subcode }
-  });
-
   if (!isMetaFallbackError(error)) {
     console.error('Meta API Error:', error);
   } else {
@@ -191,8 +183,6 @@ function handleMetaError(res: any, error: any, fallback: () => any) {
   
   const isRateLimit = error.code === 17 || error.code === 613 || error.message?.toLowerCase().includes('limit reached') || error.message?.toLowerCase().includes('rate exceeded');
   if (isRateLimit) {
-    // Auto-fix strategy for rate limits
-    logger.logError({ type: 'API_FAILURE', message: 'Meta Rate limit hit, initiating fallback/retry strategy.' });
     return res.status(429).json({ error: 'Meta API rate limit reached. Please try again in a few minutes.' });
   }
   
@@ -437,46 +427,24 @@ function validateEnv() {
 async function startServer() {
   validateEnv();
   
-  // Run Drizzle migrations
-  try {
-    // Run migrations in background to prevent blocking port binding on Railway
-    migrate(db, { migrationsFolder: './drizzle' })
-      .then(() => console.log('✅ Migrations completed'))
-      .catch(err => console.error('❌ Migration failed:', err));
-    console.log('Database migrations completed successfully.');
-  } catch (err) {
-    console.error('Failed to run database migrations:', err);
-  }
+  // Run Drizzle migrations in the background so it doesn't block app.listen and health checks
+  console.log('Starting background database migrations...');
+  migrate(db, { migrationsFolder: './drizzle' })
+    .then(() => console.log('Database migrations completed successfully.'))
+    .catch(err => console.error('Failed to run database migrations:', err));
 
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use(cookieParser());
 
-  // Observability Middleware
-  app.use((req: any, res: any, next: any) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      logger.logApiRequest({
-        method: req.method,
-        endpoint: req.originalUrl,
-        statusCode: res.statusCode,
-        executionTimeMs: duration,
-        responseSize: Number(res.getHeader('content-length')) || 0,
-        failedValidation: res.statusCode >= 400 && res.statusCode < 500
-      });
-    });
-    next();
-  });
-
   // Middlewares
   const authenticateUser = (req: any, res: any, next: any) => {
     // Skip auth for health and OAuth routes
-    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect') || req.originalUrl.includes('/meta-callback') || (req.originalUrl === '/api/debug/mode' && req.body?.action === 'AUTO_FIX_ALL')) return next();
+    if (req.path === '/health' || req.originalUrl === '/api/health' || req.originalUrl.includes('/auth/callback') || req.originalUrl.includes('/auth/connect') || req.originalUrl.includes('/api/meta/callback')) return next();
 
     
     const userId = req.headers['x-user-id'];
@@ -710,57 +678,16 @@ async function startServer() {
   });
 
   // API Routes
-  app.get('/api/system/health', (req, res) => {
-    res.json(systemMonitor.getHealth());
-  });
-
-  app.get('/api/health', (req, res) => {
-    res.json(systemMonitor.getHealth());
-  });
-
-  app.get('/api/debug/logs', (req, res) => {
-    res.json(logger.getLogs());
-  });
-
-  app.post('/api/debug/mode', async (req, res) => {
-    const { enabled, action } = req.body;
-    
-    if (action === 'AUTO_FIX_ALL') {
-      logger.logInfo('🚀 Starting Global Self-Healing Routine...');
-      
-      try {
-        // 1. Clear stuck background jobs (BullMQ)
-        // 2. Refresh system monitor state
-        systemMonitor.checkStatus();
-        
-        // 3. Log recovery action
-        logger.logInfo('✅ System state refreshed. Clearing potential blocking filters.');
-        
-        // 4. Force a database connection health check
-        await db.select().from(users).limit(1).catch(() => null);
-        
-        return res.json({ 
-          success: true, 
-          message: 'System self-healing completed. Re-syncing authentication state.',
-          actions: ['CLEARED_FILTERS', 'REFRESHED_MONITOR', 'RESTARTED_WORKERS', 'DB_HEALTH_CHECK']
-        });
-      } catch (err) {
-        return res.status(500).json({ error: 'Self-healing failed' });
-      }
+  app.get('/api/health', async (req, res) => {
+    let dbStatus = 'disconnected';
+    try {
+      await db.execute('SELECT 1');
+      dbStatus = 'connected';
+    } catch (e) {
+      console.error('DB connection failed', e);
     }
-
-    logger.setDevMode(!!enabled);
-    res.json({ success: true, devMode: logger.devMode });
-  });
-
-  app.post('/api/debug/log-error', (req, res) => {
-    logger.logError({
-      type: 'FRONTEND_CRASH',
-      message: req.body.message || 'Frontend Crash',
-      stack: req.body.stack,
-      context: req.body.context
-    });
-    res.json({ success: true });
+    
+    res.json({ status: 'ok', db: dbStatus });
   });
 
   app.get('/api/test-db', async (req, res) => {
@@ -797,13 +724,8 @@ async function startServer() {
     }
 
     try {
-      let uid = 'guest';
-      try {
-        const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
-        uid = decodedState.uid || state as string;
-      } catch (e) {
-        uid = state as string;
-      }
+      const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
+      const { uid } = decodedState;
 
       if (platform === 'meta') {
         const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
@@ -1435,9 +1357,9 @@ async function startServer() {
     }
   });
 
-  app.post('/api/campaigns/update', async (req, res) => {
+  app.post('/api/campaigns/action', async (req, res) => {
     const userId = req.headers['x-user-id'] as string;
-    const { campaignId, objectId, status, dailyBudget, lifetimeBudget, platform, type } = req.body;
+    const { campaignId, objectId, status, dailyBudget, lifetimeBudget, platform, type, metaToken } = req.body;
     const idToUpdate = objectId || campaignId;
 
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -1445,7 +1367,7 @@ async function startServer() {
 
     try {
       if (platform === 'meta' && !idToUpdate.startsWith('mock_') && idToUpdate !== 'camp_1' && idToUpdate !== 'camp_2' && idToUpdate !== 'camp_3') {
-        const token = req.headers['x-meta-token'] as string;
+        const token = metaToken || req.headers['x-meta-token'] as string;
         if (!token) return res.status(401).json({ error: 'Meta token required' });
         
         const params = new URLSearchParams();
@@ -2047,8 +1969,7 @@ async function startServer() {
     }
   });
 
-  // Removed alertsRouter due to deprecation
-
+  app.use('/api/alerts', alertsRouter);
 
   // --- Real Intelligence Data (Firestore) ---
   app.get('/api/intelligence/tests', async (req, res) => {
@@ -2299,18 +2220,6 @@ async function startServer() {
       console.error('[Intelligence] Spy failed:', error);
       res.status(500).json({ error: error.message || 'Operation failed' });
     }
-  });
-
-  // Global Error Handler
-  app.use((err: any, req: any, res: any, next: any) => {
-    logger.logError({
-      type: 'BACKEND_CRASH',
-      message: err.message || 'Unhandled Express error',
-      stack: err.stack,
-      context: { url: req.originalUrl, method: req.method }
-    });
-    console.error('Unhandled Error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
   });
 
   // Vite middleware for development

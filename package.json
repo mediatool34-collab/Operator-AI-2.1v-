@@ -6,14 +6,13 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node dist/server.js",
-    "build": "vite build && npm run build:server",
-    "build:server": "esbuild server.ts --platform=node --target=node20 --outdir=dist --bundle --packages=external --format=esm",
+    "build": "vite build && esbuild server.ts --platform=node --target=node20 --outdir=dist --bundle --packages=external --format=esm",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^10.0.1",
     "@google/genai": "latest",
     "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.15.2",
@@ -41,10 +40,10 @@
     "puppeteer": "^24.40.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-is": "^19.2.6",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.22.3",
     "recharts": "^3.8.1",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

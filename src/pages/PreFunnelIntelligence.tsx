@@ -19,6 +19,8 @@ type TabType = 'analysis' | 'competitors' | 'trends' | 'funnel' | 'creative' | '
 export function PreFunnelIntelligence() {
   const { provider: aiProvider } = useAiSettings();
   const [url, setUrl] = usePersistedState('pre_funnel_url', '');
+  const [language, setLanguage] = usePersistedState('pre_funnel_language', 'Arabic');
+  const [currency, setCurrency] = usePersistedState('pre_funnel_currency', 'USD ($)');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = usePersistedState<TabType>('pre_funnel_active_tab', 'analysis');
   const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
@@ -33,9 +35,15 @@ export function PreFunnelIntelligence() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [sharedBudgetContext] = usePersistedState<any>('budget_planner_context', null);
+  const [sharedFunnelContext, setSharedFunnelContext] = usePersistedState<any>('pre_funnel_context', null);
+
   useEffect(() => {
-    if (strategy?.funnelStrategy?.platforms?.length > 0 && !selectedPlatform) {
-      setSelectedPlatform(strategy.funnelStrategy.platforms[0].platform);
+    if (strategy?.funnelStrategy?.platforms?.length > 0) {
+      const platformExists = strategy.funnelStrategy.platforms.some((p: any) => p.platform === selectedPlatform);
+      if (!platformExists) {
+        setSelectedPlatform(strategy.funnelStrategy.platforms[0].platform);
+      }
     }
   }, [strategy, selectedPlatform, setSelectedPlatform]);
 
@@ -86,8 +94,15 @@ export function PreFunnelIntelligence() {
         
         DATA SOURCE:
         ${scrapeData.content}
+        
+        ${sharedBudgetContext ? `
+        BUDGET ORCHESTRATION CONTEXT (USE AS A SUPPORTING SIGNAL, DO NOT OVERWRITE YOUR SCORING LOGIC):
+        ${JSON.stringify(sharedBudgetContext)}
+        Explain how this budget context influenced your funnel strategy in your executive summary.
+        ` : ''}
 
         INSTRUCTIONS:
+        0. **Platform Detection**: Analyze the provided URL data and website content to detect which ad platforms (e.g., Meta, TikTok, Google Ads, Snapchat, Pinterest) the business is currently active on, or has pixels installed for. Identify what they are using vs what they should be using.
         1. **Competitor Intel**: Do NOT return generic competitors. Identify at least 3-5 REAL competitors in this specific niche. 
            - Designate a "Top Competitor" and provide a detailed 'topCompetitorRationale' explaining exactly WHY they are leading the market (e.g., superior ad hooks, better pricing psychology, faster delivery, higher trust signals).
            - Identify specific "Gaps" you can exploit.
@@ -96,19 +111,38 @@ export function PreFunnelIntelligence() {
            - **strategy**: A 2-3 sentence high-level tactical approach for this funnel stage.
            - **adSetDetails**: Detailed targeting instructions (interests, lookalikes, behaviors).
            - **creativeBreakdown**: Exactly what visual format to use (e.g., "UGC Testimonial", "Product Demo", "Problem/Solution Carousel").
-           - **contentCopy**: A complete, ready-to-use ad copy in Arabic.
+           - **contentCopy**: A complete, ready-to-use ad copy in ${language}.
            - If it's Lead Gen, focus on friction vs. volume. 
            - If it's E-commerce, focus on AOV and LTV.
-           - Budget Rationale: Explain the budget based on the specific industry benchmarks for ${url}.
+           - Budget Rationale: Explain the budget based on the specific industry benchmarks for ${url}. ALWAYS use ${currency} as the main currency unit.
         4. **Execution Roadmap**: Focus on specific, high-impact tactical fixes.
+        5. **Shared Funnel Context**: You MUST return a "sharedFunnelContext" object holding:
+           - funnelScore (1-10)
+           - readinessScore (1-10)
+           - funnelComplexity ("High", "Medium", "Low")
+           - recommendedTestingBudget (numeric amount)
+           - scalingConfidence ("High", "Medium", "Low")
+           - acquisitionDifficulty ("High", "Medium", "Low")
+           - trustSignalScore (1-10)
+           - rationale (explaining WHY you generated this context based on Budget signals if provided)
 
-        RETURN A COMPREHENSIVE tactics and funnel strategy in valid JSON format.
+        CRITICAL REQUIREMENT: All string values inside the JSON MUST be written in ${language}. Do not write the values in English. ONLY the JSON keys themselves must remain in English.
         
         REQUIRED SCHEMA (STRICT):
         {
-          "businessSummary": { "name": string, "productType": string, "offer": string, "messaging": string, "visualQuality": string, "targetAudience": string, "marketPositioning": string, "brandStrength": string, "priceLevel": string },
-          "executiveSummary": { "keyUnlock": string, "theTruth": string, "scaleOpportunity": string },
+          "businessSummary": { "name": string, "productType": string, "offer": string, "messaging": string, "visualQuality": string, "targetAudience": string, "marketPositioning": string, "brandStrength": string, "priceLevel": string, "detectedPlatforms": string[] },
+          "executiveSummary": { "keyUnlock": string, "theTruth": string, "scaleOpportunity": string, "budgetContextImpact": string },
           "detectedProblems": Array<{ issue: string, description: string, severity: "Critical" | "High" | "Medium" }>,
+          "sharedFunnelContext": {
+            "funnelScore": number,
+            "readinessScore": number,
+            "funnelComplexity": string,
+            "recommendedTestingBudget": number,
+            "scalingConfidence": string,
+            "acquisitionDifficulty": string,
+            "trustSignalScore": number,
+            "rationale": string
+          },
           "competitorInsights": {
             "topCompetitorName": string,
             "topCompetitorRationale": string,
@@ -167,7 +201,7 @@ export function PreFunnelIntelligence() {
           "executionRoadmap": { "problemSolutions": Array<{ problem: string, solution: string }>, "targetAudienceDetails": { "description": string }, "campaignStrategy": { "upcomingTypes": Array<{ type: string, objective: string }> } }
         }
 
-        LANGUAGE: PROFESSIONAL MODERN MARKETING ARABIC (Mix of Arabic and essential English terms).
+        LANGUAGE: PROFESSIONAL MODERN MARKETING ${language} (Mix of ${language} and essential English acronyms).
         Avoid generic fluff. Be technical and actionable.
       `;
 
@@ -197,6 +231,12 @@ export function PreFunnelIntelligence() {
       const parsedStrategy = JSON.parse(aiResult);
       
       setStrategy(parsedStrategy);
+      if (parsedStrategy.sharedFunnelContext) {
+        setSharedFunnelContext({
+          ...parsedStrategy.sharedFunnelContext,
+          updatedAt: Date.now()
+        });
+      }
       setLastAnalyzedAt(Date.now());
       setActiveTab('analysis');
       setAnalysisStep('');
@@ -228,6 +268,8 @@ export function PreFunnelIntelligence() {
       INSTRUCTIONS:
       1. This plan must be HYPER-SPECIFIC to the business at ${url}. Do not give generic advice like "create good content".
       2. Breakdown the strategy into 3 distinct phases (Month 1: Foundation & Fixes, Month 2: Optimization & Velocity, Month 3: Scale & Dominance).
+      3. Language: ${language}.
+      4. Use ${currency} for any budget or cost estimates.
       3. For each month, include:
          - Core Strategic Focus (The "North Star" for that month).
          - Tactical Tasks: Specific technical or creative fixes.
@@ -235,7 +277,7 @@ export function PreFunnelIntelligence() {
          - Creative Briefs: Specific concepts for ads.
          - Expected KPIs: Realistic growth targets based on the current state.
       
-      LANGUAGE: Professional Modern Marketing Arabic (Mix of high-level Arabic and English business terminology).
+      CRITICAL REQUIREMENT: The output MUST be written entirely in ${language}. Use professional business terminology.
       Format: Clean Markdown with bold headings and technical bullet points.`;
 
       let aiResult = '';
@@ -320,6 +362,33 @@ export function PreFunnelIntelligence() {
                   onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
                   className="w-full pl-12 pr-4 py-4 bg-[#0B0F19] border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white placeholder-gray-500 transition-all font-medium"
                 />
+              </div>
+              <div className="flex gap-3">
+                <select 
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-1/2 px-3 py-3 bg-[#0B0F19] border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white text-sm"
+                >
+                  <option value="Arabic">Arabic</option>
+                  <option value="English">English</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Spanish">Spanish</option>
+                </select>
+                <select 
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-1/2 px-3 py-3 bg-[#0B0F19] border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white text-sm"
+                >
+                  <option value="USD ($)">USD ($)</option>
+                  <option value="EUR (€)">EUR (€)</option>
+                  <option value="EGP (ج.م)">EGP (ج.م)</option>
+                  <option value="SAR (ر.س)">SAR (ر.س)</option>
+                  <option value="AED (د.إ)">AED (د.إ)</option>
+                  <option value="GBP (£)">GBP (£)</option>
+                  <option value="AUD ($)">AUD ($)</option>
+                  <option value="CAD ($)">CAD ($)</option>
+                </select>
               </div>
               <button
                 onClick={handleAnalyze}
@@ -449,9 +518,24 @@ export function PreFunnelIntelligence() {
                           <InfoItem label="Target Audience" value={strategy?.businessSummary?.targetAudience} />
                           <InfoItem label="Market Positioning" value={strategy?.businessSummary?.marketPositioning} />
                           <InfoItem label="Brand Strength" value={strategy?.businessSummary?.brandStrength} />
-                          <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                            <label className="text-[10px] uppercase tracking-widest text-gray-500 font-black block mb-1">Price Level</label>
-                            <span className="text-blue-400 font-bold uppercase text-xs">{strategy?.businessSummary?.priceLevel}</span>
+                          <div className="flex gap-4">
+                            <div className="flex-1 p-4 rounded-2xl bg-white/5 border border-white/5">
+                              <label className="text-[10px] uppercase tracking-widest text-gray-500 font-black block mb-1">Price Level</label>
+                              <span className="text-blue-400 font-bold uppercase text-xs">{strategy?.businessSummary?.priceLevel}</span>
+                            </div>
+                            <div className="flex-1 p-4 rounded-2xl bg-white/5 border border-white/5">
+                              <label className="text-[10px] uppercase tracking-widest text-gray-500 font-black block mb-2">Detected Platforms</label>
+                              <div className="flex flex-wrap gap-2">
+                                {strategy?.businessSummary?.detectedPlatforms?.map((plat: string, idx: number) => (
+                                  <span key={idx} className="text-[9px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-md">
+                                    {plat}
+                                  </span>
+                                ))}
+                                {!strategy?.businessSummary?.detectedPlatforms?.length && (
+                                  <span className="text-xs text-gray-500 italic">None detected</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -459,6 +543,37 @@ export function PreFunnelIntelligence() {
                   </div>
 
                   <div className="space-y-8">
+                    {strategy.sharedFunnelContext && (
+                      <div className="glass-panel p-8 rounded-[3rem] border border-blue-500/20 bg-blue-500/5">
+                        <h2 className="text-xl font-black text-white mb-6 flex items-center gap-3">
+                          <Activity className="w-6 h-6 text-blue-400" />
+                          Budget Signal Context
+                        </h2>
+                        <div className="space-y-4">
+                          <div className="p-4 rounded-2xl bg-[#0B0F19] border border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-400">Scaling Confidence</span>
+                            <span className={cn("text-xs font-black uppercase tracking-widest", 
+                              strategy.sharedFunnelContext.scalingConfidence === 'High' ? 'text-emerald-400' :
+                              strategy.sharedFunnelContext.scalingConfidence === 'Medium' ? 'text-yellow-400' : 'text-red-400'
+                            )}>{strategy.sharedFunnelContext.scalingConfidence}</span>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-[#0B0F19] border border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-400">Suggested Test Budget</span>
+                            <span className="text-xs font-black text-indigo-400">${strategy.sharedFunnelContext.recommendedTestingBudget}</span>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-[#0B0F19] border border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-400">Acquisition Difficulty</span>
+                            <span className="text-xs font-black text-purple-400">{strategy.sharedFunnelContext.acquisitionDifficulty}</span>
+                          </div>
+                          {strategy.sharedFunnelContext.rationale && (
+                            <p className="text-[10px] text-gray-500 mt-4 italic font-medium leading-relaxed">
+                              {strategy.sharedFunnelContext.rationale}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="glass-panel p-8 rounded-[3rem] border border-red-500/20 bg-red-500/5">
                       <h2 className="text-xl font-black text-white mb-6 flex items-center gap-3">
                         <AlertTriangle className="w-6 h-6 text-red-500" />
@@ -552,7 +667,7 @@ export function PreFunnelIntelligence() {
                             </div>
                             <div className="p-3 rounded-2xl bg-[#0B0F19] border border-white/5">
                               <h4 className="text-[9px] uppercase tracking-widest text-gray-500 font-black mb-1 text-left">Top Weakness</h4>
-                              <p className="text-[10px] text-red-400 font-bold italic line-clamp-1">{comp.weakness}</p>
+                              <p className="text-[10px] text-red-400 font-bold italic">{comp.weakness}</p>
                             </div>
                           </div>
 
@@ -805,7 +920,7 @@ export function PreFunnelIntelligence() {
                         <div className="flex items-center justify-between mb-8">
                           <h2 className="text-2xl font-black text-white flex items-center gap-3">
                             <Sparkles className="w-6 h-6 text-indigo-400" />
-                            3-Month Battle Plan (Arabic)
+                            3-Month Battle Plan
                           </h2>
                           <button onClick={handleGenerateLongTermStrategy} className="text-xs font-black text-indigo-400 uppercase">Regenerate</button>
                         </div>

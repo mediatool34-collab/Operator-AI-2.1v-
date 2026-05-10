@@ -80,3 +80,85 @@ export const adAccounts = pgTable('ad_accounts', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+export const socialProfiles = pgTable('social_profiles', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').references(() => workspaces.id),
+  platform: text('platform').notNull(),
+  url: text('url').notNull(),
+  username: text('username'),
+  followers: integer('followers'),
+  engagementRate: doublePrecision('engagement_rate'),
+  bio: text('bio'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const competitorData = pgTable('competitor_data', {
+  id: text('id').primaryKey(),
+  profileId: text('profile_id').references(() => socialProfiles.id),
+  name: text('name').notNull(),
+  dominantPlatform: text('dominant_platform'),
+  pricingStrategy: text('pricing_strategy'),
+  strength: text('strength'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const contentAnalysis = pgTable('content_analysis', {
+  id: text('id').primaryKey(),
+  profileId: text('profile_id').references(() => socialProfiles.id),
+  contentType: text('content_type'), // best, worst
+  url: text('url'),
+  hookQuality: text('hook_quality'),
+  retentionWeakness: text('retention_weakness'),
+  reasonFailed: text('reason_failed'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const adsIntelligence = pgTable('ads_intelligence', {
+  id: text('id').primaryKey(),
+  competitorId: text('competitor_id').references(() => competitorData.id),
+  adUrl: text('ad_url'),
+  creativeUrl: text('creative_url'),
+  hook: text('hook'),
+  cta: text('cta'),
+  adCopy: text('ad_copy'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const personas = pgTable('personas', {
+  id: text('id').primaryKey(),
+  profileId: text('profile_id').references(() => socialProfiles.id),
+  name: text('name').notNull(),
+  interests: jsonb('interests'),
+  painPoints: jsonb('pain_points'),
+  buyingTriggers: jsonb('buying_triggers'),
+  awarenessLevel: text('awareness_level'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const mediaBuyingPlans = pgTable('media_buying_plans', {
+  id: text('id').primaryKey(),
+  profileId: text('profile_id').references(() => socialProfiles.id),
+  campaignsCount: integer('campaigns_count'),
+  adsetsCount: integer('adsets_count'),
+  adsCount: integer('ads_count'),
+  aboVsCbo: text('abo_vs_cbo'),
+  suggestedBudget: text('suggested_budget'),
+  kpiExpectations: text('kpi_expectations'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const connectedAccounts = pgTable('connected_accounts', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').references(() => workspaces.id),
+  platform: text('platform').notNull(), // e.g., 'meta', 'tiktok'
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  pageId: text('page_id'),
+  adAccountId: text('ad_account_id'),
+  businessId: text('business_id'),
+  scopes: text('scopes'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+
+

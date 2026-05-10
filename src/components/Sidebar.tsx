@@ -8,6 +8,7 @@ const navItems = [
   { name: 'S.F.K Strategy', path: '/automation', icon: CheckSquare, core: true },
   { name: 'Intelligent Audit', path: '/campaigns', icon: Target, core: true },
   { name: 'Live Market Spy', path: '/ad-spy', icon: Eye },
+  { name: 'Social Intelligence Hub', path: '/social-intel', icon: ActivitySquare },
   { name: 'Creative Intel', path: '/creatives', icon: ImageIcon },
   { name: 'Testing Engine', path: '/scaling', icon: FlaskConical },
   { name: 'Strategic Roadmap', path: '/strategy', icon: Lightbulb },

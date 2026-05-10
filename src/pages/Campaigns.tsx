@@ -87,10 +87,11 @@ export function Campaigns() {
 
       // Define internal execution function for retries/self-healing
       const executeUpdate = async (targetId: string, payload: any): Promise<any> => {
-        const res = await fetch('/api/campaigns/update', {
+        const fetchPayload = { ...payload, metaToken: token || '', snapchatToken: token || '', tiktokToken: token || '' };
+        const res = await fetch('/api/campaigns/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-user-id': user!.uid, [`x-${platform}-token`]: token || '' },
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'application/json', 'x-user-id': user!.uid },
+          body: JSON.stringify(fetchPayload)
         });
         
         return await safeJson(res);
@@ -233,10 +234,7 @@ export function Campaigns() {
       // Log to Intelligence Engine
       fetch('/api/intelligence/log-action', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': user!.uid
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'OPTIMIZATION',
           payload: { campaignId: itemId, campaignName: item.name, action: action.toUpperCase(), reason }

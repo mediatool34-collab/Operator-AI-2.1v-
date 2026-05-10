@@ -55,10 +55,7 @@ export function ExecutionEngine() {
         // Send to analysis engine
         const analysisRes = await fetch('/api/analysis', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-user-id': user!.uid
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items: combinedData })
         });
         const analysisData = await safeJson(analysisRes);
@@ -142,12 +139,15 @@ export function ExecutionEngine() {
         updatePayload.status = 'PAUSED';
       }
 
-      const res = await fetch('/api/campaigns/update', {
+      updatePayload.metaToken = token || '';
+      updatePayload.snapchatToken = token || '';
+      updatePayload.tiktokToken = token || '';
+
+      const res = await fetch('/api/campaigns/action', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-user-id': user!.uid,
-          [`x-${platform}-token`]: token || ''
+          'x-user-id': user!.uid
         },
         body: JSON.stringify(updatePayload)
       });
