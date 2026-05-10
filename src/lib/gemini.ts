@@ -5,7 +5,17 @@ import { GoogleGenAI } from "@google/genai";
  * Follows AI Studio guidelines by calling Gemini API directly from the client.
  */
 export async function analyzeWithGemini(prompt: string, isJson: boolean = false): Promise<string> {
-  const apiKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const getApiKey = () => {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+      return import.meta.env.VITE_GEMINI_API_KEY;
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+    }
+    return '';
+  };
+  
+  const apiKey = getApiKey().trim().replace(/^["']|["']$/g, '');
   
   if (!apiKey || apiKey === 'TODO') {
     throw new Error('Gemini API Key is missing. Please add it to the Secrets panel in AI Studio.');
