@@ -126,12 +126,26 @@ export function Creatives() {
       });
       const analysisData = await safeJson(analysisRes);
       
-      if (analysisData.error) throw new Error(analysisData.error);
+      if (analysisData && analysisData.error) {
+        console.warn('Analysis engine error, falling back to basic metrics:', analysisData.error);
+      }
 
-      const analyzedCreatives = analysisData.analyzedItems.map((item: any) => {
+      // If backend returns an array, use it. If it returns an object with analyzedItems, use that.
+      // Otherwise, fallback to the original items.
+      const itemsToAnalyze = Array.isArray(analysisData) && analysisData.length > 0 
+        ? analysisData 
+        : (analysisData?.analyzedItems && analysisData.analyzedItems.length > 0 ? analysisData.analyzedItems : aggregatedCreatives);
+
+      const analyzedCreatives = itemsToAnalyze.map((item: any) => {
         let classification = 'Average';
-        if (item.analysis?.creativeClassification === 'WINNER') classification = 'Winning';
-        if (item.analysis?.creativeClassification === 'LOSER' || item.analysis?.creativeClassification === 'FATIGUED') classification = 'Poor';
+        if (item.analysis?.creativeClassification) {
+          if (item.analysis.creativeClassification === 'WINNER') classification = 'Winning';
+          if (item.analysis.creativeClassification === 'LOSER' || item.analysis.creativeClassification === 'FATIGUED') classification = 'Poor';
+        } else {
+          // Basic fallback logic if no analysis was provided
+          if (item.metrics?.roas > 2.0 && item.metrics?.spend > 50) classification = 'Winning';
+          else if (item.metrics?.spend > 100 && item.metrics?.roas < 0.5) classification = 'Poor';
+        }
         
         return {
           ...item,
