@@ -93,6 +93,30 @@ export class MetaSyncService {
       return { status: 'success', count: ads.length };
 
     } catch (error: any) {
+      const errorMsg = error.response?.data?.error?.message || error.message || '';
+      
+      if (errorMsg.includes('User request limit reached') || error.response?.status === 429) {
+        console.warn(`[MetaSync] ⚠️ Rate limit reached for ${ad_account_id}. Queuing for automatic retry later.`);
+        
+        try {
+          const { jobsQueue, JOB_TYPES } = await import('../queue/queue.ts');
+          await jobsQueue.add(JOB_TYPES.SYNC_CAMPAIGNS, {
+            workspace_id,
+            ad_account_id,
+            access_token: accessToken
+          }, { 
+            delay: 300000, // wait 5 minutes before retrying
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 60000 }
+          });
+          
+          return { status: 'queued', message: 'Rate limit reached. Sync queued for later.' };
+        } catch (queueErr) {
+          console.error('[MetaSync] Failed to enqueue rate-limited sync:', queueErr);
+          throw error;
+        }
+      }
+
       console.error(`[MetaSync] ❌ Error syncing Meta Ads:`, error.response?.data || error.message);
       throw error;
     }

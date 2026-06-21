@@ -1,74 +1,85 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Target, Image as ImageIcon, FlaskConical, Lightbulb, Bell, Settings, ActivitySquare, CheckSquare, Globe, Search, Eye, BrainCircuit, History, Calculator, Shield } from 'lucide-react';
+import { LayoutDashboard, Target, Image as ImageIcon, FlaskConical, Lightbulb, Bell, Settings, ActivitySquare, CheckSquare, Globe, Search, Eye, BrainCircuit, History, Calculator, Shield, Zap, PenTool, Video, Rocket, Sparkles, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-const navItems = [
-  { name: 'Smart Dashboard', path: '/dashboard', icon: LayoutDashboard, core: true },
-  { name: 'S.F.K Strategy', path: '/automation', icon: CheckSquare, core: true },
-  { name: 'Intelligent Audit', path: '/campaigns', icon: Target, core: true },
-  { name: 'Live Market Spy', path: '/ad-spy', icon: Eye },
-  { name: 'Social Intelligence Hub', path: '/social-intel', icon: ActivitySquare },
-  { name: 'Creative Intel', path: '/creatives', icon: ImageIcon },
-  { name: 'Testing Engine', path: '/scaling', icon: FlaskConical },
-  { name: 'Strategic Roadmap', path: '/strategy', icon: Lightbulb },
-  { name: 'Market Intel', path: '/market', icon: Globe },
-  { name: 'Pre-Funnel Diagnosis', path: '/pre-funnel', icon: BrainCircuit },
-  { name: 'Budget Orchestration', path: '/budget', icon: Calculator },
-  { name: 'Admin Command', path: '/admin', icon: Shield },
-  { name: 'User Settings', path: '/settings', icon: Settings },
-  { name: 'Optimization Logs', path: '/logs', icon: History },
-  { name: 'Smart Alerts', path: '/alerts', icon: Bell },
+const navGroups = [
+  {
+    title: 'OPERATIONS',
+    items: [
+      { name: 'Command Center', path: '/dashboard', icon: LayoutDashboard },
+      { name: 'Campaign Manager', path: '/campaigns', icon: Target },
+      { name: 'Automations & Rules', path: '/performance', icon: TrendingUp }
+    ]
+  },
+  {
+    title: 'RESEARCH',
+    items: [
+      { name: 'Creative Analytics', path: '/creatives', icon: ImageIcon },
+      { name: 'Market Intel', path: '/market', icon: Globe },
+      { name: 'Pre-Funnel Analysis', path: '/pre-funnel', icon: BrainCircuit },
+      { name: 'Optimization Logs', path: '/logs', icon: History },
+      { name: 'Competitor Spy', path: '/ad-spy', icon: Eye },
+      { name: 'Content Architect', path: '/content-architect', icon: PenTool },
+      { name: 'Strategy Playbook', path: '/growth-planner', icon: Rocket },
+      { name: 'Audience Architect', path: '/omni-engine', icon: BrainCircuit }
+    ]
+  },
+  {
+    title: 'SETTINGS',
+    items: [
+      { name: 'Global Settings', path: '/settings', icon: Settings }
+    ]
+  }
 ];
 
 export function Sidebar() {
   return (
-    <div className="w-64 bg-brand-panel/95 backdrop-blur-xl text-gray-300 flex flex-col h-screen border-r border-brand-border relative z-20 shadow-2xl">
-      <div className="p-8">
-        <h1 className="text-xl font-bold tracking-tight flex items-center gap-3 text-white">
-          <div className="p-2 bg-gradient-to-br from-brand-accent/30 to-indigo-500/30 rounded-xl border border-brand-accent/40 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
-            <Target className="w-5 h-5 text-brand-accent" />
+    <div className="w-64 bg-card text-foreground flex flex-col h-screen border-r border-border shrink-0 z-20">
+      <div className="p-6">
+        <h1 className="text-xl font-bold tracking-tight flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg text-primary">
+            <Target className="w-5 h-5" />
           </div>
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Operator AI</span>
+          <span className="font-semibold">MediaBuyer</span>
         </h1>
       </div>
-      <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto custom-scrollbar pb-8">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.path}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden',
-                isActive
-                  ? 'bg-brand-accent/10 text-brand-accent border border-brand-accent/20 shadow-[0_0_20px_rgba(59,130,246,0.05)]'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent',
-                item.core && !isActive && 'text-gray-200 bg-white/[0.02]'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon className={cn("w-4 h-4 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", isActive && "text-brand-accent", item.core && "text-indigo-400")} />
-                {item.name}
-                {item.core && (
-                  <div className="ml-auto w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-r from-brand-accent/0 via-brand-accent/0 to-brand-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              </>
-            )}
-          </NavLink>
+      <nav className="flex-1 px-4 space-y-6 overflow-y-auto custom-scrollbar pb-8">
+        {navGroups.map((group) => (
+          <div key={group.title} className="space-y-1">
+            <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.title}</h3>
+            <div className="space-y-1">
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors group relative',
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <item.icon className={cn("w-4 h-4 transition-transform group-hover:scale-105", isActive && "text-primary")} />
+                      {item.name}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
-      <div className="p-6 border-t border-brand-border bg-brand-panel/50">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">System Status</span>
-            <span className="text-xs text-gray-400 mt-0.5">All engines operational</span>
-          </div>
-          <div className="relative">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)] animate-pulse"></div>
-            <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-40"></div>
+      <div className="p-4 border-t border-border mt-auto">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>System Status</span>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <span>Online</span>
           </div>
         </div>
       </div>

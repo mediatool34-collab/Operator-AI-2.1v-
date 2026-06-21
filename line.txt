@@ -1,0 +1,1 @@
+                            <p className="text-3xl font-black text-white">{analysisResult.adsStrategy.budgetAllocation.testing}</p>

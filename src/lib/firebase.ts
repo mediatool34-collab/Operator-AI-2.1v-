@@ -14,11 +14,13 @@ export const signInWithGoogle = async () => {
         await signInWithPopup(auth, provider);
     } catch (error) {
         console.error("Error signing in with Google", error);
+        throw error;
     }
 };
 
 export const logOut = async () => {
     try {
+        localStorage.removeItem('operator_sandbox_user');
         await signOut(auth);
     } catch (error) {
         console.error("Error signing out", error);

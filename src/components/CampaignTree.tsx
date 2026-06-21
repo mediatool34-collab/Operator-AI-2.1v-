@@ -93,7 +93,7 @@ export function CampaignTree({ campaigns, adsets, ads, insights, selectedId, onS
   return (
     <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-full bg-[#0B0F19]/50 border border-white/5 shadow-2xl">
       <div className="p-4 border-b border-white/5 bg-[#111827]/80 flex items-center justify-between">
-        <h2 className="font-bold text-white flex items-center gap-2">
+        <h2 className="font-bold text-foreground flex items-center gap-2">
           <Folder className="w-4 h-4 text-blue-400" />
           Campaign Structure
         </h2>
@@ -102,7 +102,7 @@ export function CampaignTree({ campaigns, adsets, ads, insights, selectedId, onS
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
               "p-1.5 rounded-lg border transition-all",
-              showFilters ? "bg-blue-500/20 border-blue-500/30 text-blue-400" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+              showFilters ? "bg-blue-500/20 border-blue-500/30 text-blue-400" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
             )}
             title="Filter & Sort"
           >
@@ -114,11 +114,11 @@ export function CampaignTree({ campaigns, adsets, ads, insights, selectedId, onS
       {showFilters && (
         <div className="p-4 bg-[#111827]/40 border-b border-white/5 space-y-4 animate-in slide-in-from-top duration-200">
           <div className="space-y-1.5">
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 font-black">Platform</label>
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">Platform</label>
             <select 
               value={platform}
               onChange={(e) => setPlatform(e.target.value)}
-              className="w-full bg-[#0B0F19] border border-white/10 text-xs rounded-lg px-3 py-2 text-gray-300 outline-none focus:border-blue-500/50"
+              className="w-full bg-[#0B0F19] border border-white/10 text-xs rounded-lg px-3 py-2 text-muted-foreground outline-none focus:border-blue-500/50"
             >
               <option value="meta">Meta Ads</option>
               <option value="google">Google Ads</option>

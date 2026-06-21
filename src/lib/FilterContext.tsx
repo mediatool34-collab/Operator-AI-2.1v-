@@ -65,8 +65,18 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setMetaToken(localStorage.getItem('meta_token') || 'local_meta_token');
-    return () => {};
+    const handler = () => {
+      console.warn('Handling meta_token_expired event');
+      setMetaToken(null);
+      setAdAccounts([]);
+      setSelectedAccountId(null);
+    };
+    window.addEventListener('meta_token_expired', handler);
+
+    Promise.resolve().then(() => {
+      setMetaToken(localStorage.getItem('meta_token') || 'local_meta_token');
+    });
+    return () => window.removeEventListener('meta_token_expired', handler);
   }, [user]);
 
   // Fetch Meta Profile Info
@@ -110,6 +120,15 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       })
       .then(res => safeJson(res))
       .then(data => {
+        if (data.error === 'META_TOKEN_EXPIRED' && platform === 'meta') {
+           console.warn('Meta token expired, clearing local token.');
+           localStorage.removeItem('meta_token');
+           setMetaToken(null);
+           setAdAccounts([]);
+           setSelectedAccountId(null);
+           return;
+        }
+
         const unifiedAccount = { id: 'all', name: 'Unified Account View', account_id: 'ALL_ACCOUNTS' };
         if (data.accounts && data.accounts.length > 0) {
           const accountsWithUnified = [unifiedAccount, ...data.accounts];

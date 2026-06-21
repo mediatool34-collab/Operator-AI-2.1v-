@@ -126,26 +126,12 @@ export function Creatives() {
       });
       const analysisData = await safeJson(analysisRes);
       
-      if (analysisData && analysisData.error) {
-        console.warn('Analysis engine error, falling back to basic metrics:', analysisData.error);
-      }
+      if (analysisData.error) throw new Error(analysisData.error);
 
-      // If backend returns an array, use it. If it returns an object with analyzedItems, use that.
-      // Otherwise, fallback to the original items.
-      const itemsToAnalyze = Array.isArray(analysisData) && analysisData.length > 0 
-        ? analysisData 
-        : (analysisData?.analyzedItems && analysisData.analyzedItems.length > 0 ? analysisData.analyzedItems : aggregatedCreatives);
-
-      const analyzedCreatives = itemsToAnalyze.map((item: any) => {
+      const analyzedCreatives = analysisData.analyzedItems.map((item: any) => {
         let classification = 'Average';
-        if (item.analysis?.creativeClassification) {
-          if (item.analysis.creativeClassification === 'WINNER') classification = 'Winning';
-          if (item.analysis.creativeClassification === 'LOSER' || item.analysis.creativeClassification === 'FATIGUED') classification = 'Poor';
-        } else {
-          // Basic fallback logic if no analysis was provided
-          if (item.metrics?.roas > 2.0 && item.metrics?.spend > 50) classification = 'Winning';
-          else if (item.metrics?.spend > 100 && item.metrics?.roas < 0.5) classification = 'Poor';
-        }
+        if (item.analysis?.creativeClassification === 'WINNER') classification = 'Winning';
+        if (item.analysis?.creativeClassification === 'LOSER' || item.analysis?.creativeClassification === 'FATIGUED') classification = 'Poor';
         
         return {
           ...item,
@@ -240,7 +226,7 @@ Provide the output in Markdown format with the following sections:
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Error Fetching Data</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Error Fetching Data</h2>
           <p className="text-red-300 mb-6">{error}</p>
           <button onClick={fetchAll} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors shadow-[0_0_15px_rgba(37,99,235,0.3)]">
             Try Again
@@ -257,7 +243,7 @@ Provide the output in Markdown format with the following sections:
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <Activity className="w-12 h-12 text-blue-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Not Connected</h2>
-          <p className="text-gray-400 mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to view creatives.</p>
+          <p className="text-muted-foreground mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to view creatives.</p>
         </div>
       </div>
     );
@@ -385,7 +371,7 @@ Provide the output in Markdown format with the following sections:
                     </div>
                     AI Generated Creative Strategy
                   </h4>
-                  <div className="prose prose-sm prose-invert max-w-none text-gray-300 prose-headings:text-white prose-a:text-blue-400" dir="auto">
+                  <div className="prose prose-sm prose-invert max-w-none text-muted-foreground prose-headings:text-white prose-a:text-blue-400" dir="auto">
                     <ReactMarkdown>{generatedConcepts[creative.id]}</ReactMarkdown>
                   </div>
                 </div>

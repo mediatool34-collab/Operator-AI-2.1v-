@@ -45,15 +45,15 @@ export function AccountSelector() {
         </div>
         
         <div className="flex flex-col items-start min-w-[120px] max-w-[200px]">
-          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 leading-none mb-0.5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-0.5">
             {loadingAccounts ? 'Syncing...' : (isUnified ? 'Global View' : 'Single Account')}
           </span>
-          <span className="truncate text-gray-200">
+          <span className="truncate text-foreground">
             {loadingAccounts ? 'Accounts...' : (currentAccount ? currentAccount.name : 'Select Account')}
           </span>
         </div>
 
-        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-400' : 'group-hover:text-gray-300'}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-400' : 'group-hover:text-muted-foreground'}`} />
       </button>
 
       {isOpen && !loadingAccounts && (
@@ -68,7 +68,7 @@ export function AccountSelector() {
                 className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all duration-200 group relative overflow-hidden ${
                   selectedAccountId === 'all' 
                     ? 'bg-blue-500/20 text-blue-200 border border-blue-500/30 shadow-lg shadow-blue-500/10' 
-                    : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
+                    : 'text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent'
                 }`}
               >
                 <div className={`p-2 rounded-lg ${selectedAccountId === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 group-hover:bg-gray-700'}`}>
@@ -87,7 +87,7 @@ export function AccountSelector() {
 
           <div className="px-5 py-2 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/5"></div>
-            <div className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">Individual Portfolios</div>
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Individual Portfolios</div>
             <div className="h-px flex-1 bg-white/5"></div>
           </div>
 

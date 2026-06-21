@@ -12,11 +12,12 @@ interface InsightPanelProps {
 export function InsightPanel({ analysis, loading, onFix, onViewDetails }: InsightPanelProps) {
   const [fixing, setFixing] = React.useState(false);
   const [justFixed, setJustFixed] = React.useState(false);
+  const [prevAnalysis, setPrevAnalysis] = React.useState(analysis);
 
-  // Reset success state when analysis changes
-  React.useEffect(() => {
+  if (analysis !== prevAnalysis) {
+    setPrevAnalysis(analysis);
     setJustFixed(false);
-  }, [analysis]);
+  }
 
   if (loading) {
     return (
@@ -34,9 +35,9 @@ export function InsightPanel({ analysis, loading, onFix, onViewDetails }: Insigh
   if (!analysis) {
     return (
       <div className="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
-        <Activity className="w-10 h-10 text-gray-600 mb-3" />
-        <h3 className="text-white font-medium">No Insights Available</h3>
-        <p className="text-gray-500 text-sm mt-1">Select an item to view AI analysis and recommendations.</p>
+        <Activity className="w-10 h-10 text-muted-foreground mb-3" />
+        <h3 className="text-foreground font-medium">No Insights Available</h3>
+        <p className="text-muted-foreground text-sm mt-1">Select an item to view AI analysis and recommendations.</p>
       </div>
     );
   }
@@ -48,7 +49,7 @@ export function InsightPanel({ analysis, loading, onFix, onViewDetails }: Insigh
       case 'SCALE': return 'bg-green-500/10 text-green-400 border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.2)]';
       case 'KILL': return 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]';
       case 'OPTIMIZE': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 shadow-[0_0_10px_rgba(234,179,8,0.2)]';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+      default: return 'bg-gray-500/10 text-muted-foreground border-gray-500/20';
     }
   };
 
@@ -69,7 +70,7 @@ export function InsightPanel({ analysis, loading, onFix, onViewDetails }: Insigh
             <CheckCircle2 className="w-10 h-10 text-green-400" />
           </div>
           <h3 className="text-xl font-bold text-white mb-2">Optimization Applied</h3>
-          <p className="text-gray-300 text-sm mb-6 max-w-xs">The recommended changes have been pushed to your ad account.</p>
+          <p className="text-muted-foreground text-sm mb-6 max-w-xs">The recommended changes have been pushed to your ad account.</p>
           <div className="flex gap-3">
             <button 
               onClick={() => setJustFixed(false)}
@@ -108,7 +109,7 @@ export function InsightPanel({ analysis, loading, onFix, onViewDetails }: Insigh
         <div>
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Suggested Action</h3>
           <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-            <p className="text-gray-200 text-lg font-medium leading-relaxed">{suggestedAction}</p>
+            <p className="text-foreground text-lg font-medium leading-relaxed">{suggestedAction}</p>
           </div>
         </div>
 

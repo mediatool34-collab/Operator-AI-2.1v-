@@ -31,7 +31,7 @@ export async function analyzeWithGemini(prompt: string, isJson: boolean = false)
   };
 
   try {
-    const targetModel = isJson ? "gemini-3.1-pro-preview" : "gemini-3-flash-preview";
+    const targetModel = isJson ? "gemini-3.1-pro-preview" : "gemini-3.5-flash";
     let response;
     
     try {
@@ -39,8 +39,8 @@ export async function analyzeWithGemini(prompt: string, isJson: boolean = false)
     } catch (modelError: any) {
       if (isJson && (modelError.message?.includes('429') || modelError.message?.includes('RESOURCE_EXHAUSTED') || modelError.message?.includes('404'))) {
         // Fallback to flash if pro hits quota or is not found
-        console.warn('Falling back to flash model due to error:', modelError.message);
-        response = await generate('gemini-3-flash-preview');
+        console.log('Falling back to flash model due to error or quota constraints.');
+        response = await generate('gemini-3.5-flash');
       } else {
         throw modelError;
       }

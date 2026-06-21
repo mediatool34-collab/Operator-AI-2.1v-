@@ -9,9 +9,9 @@ export function CreativeViewer({ creative }: CreativeViewerProps) {
   if (!creative) {
     return (
       <div className="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
-        <ImageIcon className="w-10 h-10 text-gray-600 mb-3" />
-        <h3 className="text-white font-medium">No Creative Selected</h3>
-        <p className="text-gray-500 text-sm mt-1">Select an ad or creative to view its assets.</p>
+        <ImageIcon className="w-10 h-10 text-muted-foreground mb-3" />
+        <h3 className="text-foreground font-medium">No Creative Selected</h3>
+        <p className="text-muted-foreground text-sm mt-1">Select an ad or creative to view its assets.</p>
       </div>
     );
   }
@@ -60,7 +60,7 @@ export function CreativeViewer({ creative }: CreativeViewerProps) {
           {creative.body && (
             <div>
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Primary Text</h3>
-              <div className="p-4 bg-[#111827]/50 rounded-xl border border-white/5 text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
+              <div className="p-4 bg-[#111827]/50 rounded-xl border border-white/5 text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">
                 {creative.body}
               </div>
             </div>

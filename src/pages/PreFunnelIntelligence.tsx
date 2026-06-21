@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import JSON5 from 'json5';
 import { 
   Search, Globe, Target, TrendingUp, Lightbulb, AlertTriangle, 
   CheckCircle2, Crosshair, Zap, Shield, BarChart3, Presentation, 
   Sparkles, ArrowRight, ExternalLink, Eye, Layout, MessageSquare, 
   Megaphone, Gauge, ChevronRight, Info, AlertCircle, Rocket,
-  RefreshCw, Image as ImageIcon, Activity, DollarSign, Users, Play, Repeat
+  RefreshCw, Image as ImageIcon, Activity, DollarSign, Users, Play, Repeat,
+  PenTool, Copy, Check
 } from 'lucide-react';
 import { cn, safeJson } from '../lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -13,23 +15,60 @@ import { useNavigate } from 'react-router-dom';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { analyzeWithGemini } from '../lib/gemini';
+import { CRO_AND_AOV_INTELLIGENCE_DIRECTIVE } from '../lib/operatorDirectives';
 
-type TabType = 'analysis' | 'competitors' | 'trends' | 'funnel' | 'creative' | 'roadmap';
+type TabType = 'audit' | 'analysis' | 'competitors' | 'trends' | 'funnel' | 'creative' | 'roadmap' | 'content';
 
 export function PreFunnelIntelligence() {
   const { provider: aiProvider } = useAiSettings();
   const [url, setUrl] = usePersistedState('pre_funnel_url', '');
   const [language, setLanguage] = usePersistedState('pre_funnel_language', 'Arabic');
   const [currency, setCurrency] = usePersistedState('pre_funnel_currency', 'USD ($)');
+  const [customCompetitors, setCustomCompetitors] = usePersistedState('pre_funnel_custom_competitors', '');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = usePersistedState<TabType>('pre_funnel_active_tab', 'analysis');
   const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [strategy, setStrategy] = usePersistedState<any>('pre_funnel_strategy', null);
+  const [contentAnalysis, setContentAnalysis] = usePersistedState<any>('pre_funnel_content', null);
+  const [generatingContent, setGeneratingContent] = useState(false);
+  const [copiedAdId, setCopiedAdId] = useState<string | null>(null);
   const [longTermStrategy, setLongTermStrategy] = usePersistedState<string | null>('pre_funnel_long_term', null);
   const [lastAnalyzedAt, setLastAnalyzedAt] = usePersistedState<number | null>('pre_funnel_last_analyzed', null);
   const [analysisStep, setAnalysisStep] = useState<string>('');
+  const [updatingBudget, setUpdatingBudget] = useState(false);
+  const [customBudget, setCustomBudget] = usePersistedState<string>('pre_funnel_custom_budget', '');
   
+  // Robust JSON cleaner and parser
+  const safeParseJSON = (text: string) => {
+    try {
+      // First attempt to parse directly (models with responseMimeType often return clean JSON)
+      return JSON.parse(text);
+    } catch (directError) {
+      try {
+        let sanitized = text.trim();
+        
+        // 1. Remove markdown code blocks if present
+        if (sanitized.includes('```')) {
+          sanitized = sanitized.replace(/```json/g, '').replace(/```/g, '').trim();
+        }
+        
+        // 2. Extract only the content between the first { and last }
+        const firstBrace = sanitized.indexOf('{');
+        const lastBrace = sanitized.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          sanitized = sanitized.substring(firstBrace, lastBrace + 1);
+        }
+
+        // Try JSON5, which handles a lot of edge cases like trailing commas, single quotes, etc.
+        return JSON5.parse(sanitized);
+      } catch (e: any) {
+        console.error('JSON parse failed after cleanup:', e);
+        throw new Error(`Expected clean JSON from AI, but received an invalid structure. Detail: ${e.message}`);
+      }
+    }
+  };
+
   const [selectedPlatform, setSelectedPlatform] = usePersistedState<string>('pre_funnel_selected_platform', '');
   
   const { user } = useAuth();
@@ -78,11 +117,52 @@ export function PreFunnelIntelligence() {
       });
 
       let scrapeData;
-      if (scrapeResponse.ok) {
+      const contentType = scrapeResponse.headers.get('content-type');
+      if (scrapeResponse.ok && contentType && contentType.includes('application/json')) {
         scrapeData = await scrapeResponse.json();
       } else {
         console.warn('Scraping failed, falling back to URL-only analysis');
         scrapeData = { content: 'Could not scrape content', title: 'Target Website' };
+      }
+
+      setAnalysisStep('Performing broader market and competitor research...');
+      
+      let marketResearchContext = '';
+      try {
+        if (aiProvider === 'gemini') {
+          const searchPrompt = `As a senior local market analyst (Media Buyer), investigate the following target business and find 3 to 6 REAL direct competitors for it in its specific local market. 
+          
+          TARGET BUSINESS DATA:
+          URL: ${url}
+          WEBSITE CONTENT: ${(scrapeData.content || '').substring(0, 5000)}
+          
+          ${customCompetitors?.trim() ? `CRITICAL - THE USER HAS EXPLICITLY PROVIDED THE DIRECT COMPETITORS:
+          "${customCompetitors}"
+          YOU MUST USE THESE AND ONLY THESE EXACT COMPETITORS. Use Google Search to find their websites, social media, and deep marketing metrics.` : `COMPETITOR RESEARCH RULES:
+          1. Identify its core industry, product category, and target country.
+          2. Use Google Search to find 3 to 5 REAL, STRONG BRAND COMPETITORS that MANUFACTURE or OWN competing/similar products in the same market.
+          3. EXCLUDE RESELLERS & DISTRIBUTORS: STRICTLY DO NOT include general marketplaces (Amazon, Noon, Jumia), local retail stores, pharmacies, agencies, or retail outlets that merely resell products. The competitors MUST be the brand owners themselves (e.g., if the target product is Laser Hair Removal, the competitors are Brands like Braun, Philips, Ulike, Mlay, NOT a local store that sells them).
+          4. EXCLUDE WEAK DROPSHIPPERS: DO NOT include weak, unverified social media pages or generic dropshipping stores.
+          5. NO DUPLICATES: Each competitor in the list must be strictly unique.
+          6. NO HALLUCINATIONS: You MUST verify the brands are real businesses with real official manufacturer websites (e.g., braun.com, philips.com) or verified official brand social media profiles.`}
+          
+          Give me a detailed list containing:
+          1. Their exact names and store/social media links (online/offline stores).
+          2. Complete Ad Strategy breakdown: Platform by platform (Meta, TikTok, etc), specifying for each the exact Campaign Objectives, Content Formats, and specifying which platform is their Top Purchase Driver.
+          3. Exact "Top Winning Product" (المنتج الأكثر مبيعاً) specifying exactly what they are selling heavily.
+          4. "Average Order Value" (AOV - متوسط قيمة الطلب). This MUST be a realistic numeric average purchase cart value in local currency.
+          5. "priceRange" - This MUST indicate the class of pricing: "High-End", "Mid-Range", "Low-End" (فئة سعرية مرتفعة، متوسطة، رخيصة) - DO NOT PUT NUMBERS HERE.
+          6. SEO Keywords they rank for and their estimated SEO Backlink strategy.
+          7. Hyper-realistic, street-level media buying benchmarks for Cost per Purchase (CPA), Cost per Lead, and Cost per Message in their specific local country. 
+             *WARNING: Do NOT just calculate a flat percentage of AOV. In markets like Egypt (EGP) or MENA, CPA is often aggressively low due to local purchasing power and CPMs. Even for a 7000 EGP product, the CPA on Meta might realistically be 150-400 EGP maximum, NOT 1000+ EGP. Leads and Messages are often as low as 10-50 EGP. Provide raw, accurate local media buyer numbers.*
+          8. Top Campaign Breakdown: Find or estimate their MOST SUCCESSFUL campaign details (Target regions, target audience, competitive daily budget, ad formats, and caption angles).
+          
+          CRITICAL: Use only standard English digits for all numbers (1, 2, 3...) even if generating Arabic text. DO NOT use Eastern Arabic numerals.
+          Ensure factual grounding. Find real local competitors for their target audience region.`;
+          marketResearchContext = await analyzeWithGemini(searchPrompt, false);
+        }
+      } catch (searchErr) {
+        console.warn('Market research grounding pass failed:', searchErr);
       }
 
       setAnalysisStep('Generating tactical funnel blueprint...');
@@ -92,8 +172,16 @@ export function PreFunnelIntelligence() {
         Act as a SENIOR STRATEGIC ANALYST & GROWTH ARCHITECT (McKinsey/BCG level). 
         Your mission is to perform a DEEP-DIVE forensic analysis of the business at ${url}.
         
-        DATA SOURCE:
-        ${scrapeData.content}
+        DATA SOURCE (TARGET BUSINESS):
+        ${(scrapeData.content || '').substring(0, 150000)}
+
+        MARKET RESEARCH CONTEXT (COMPETITOR INTELLIGENCE FROM SEARCH GROUNDING):
+        ${marketResearchContext}
+
+        ${CRO_AND_AOV_INTELLIGENCE_DIRECTIVE}
+        
+        CRITICAL INSTRUCTION FOR COMPETITOR INSIGHTS:
+        You MUST ONLY use the competitors provided in the MARKET RESEARCH CONTEXT above. DO NOT invent, guess, or hallucinate competitors. Formulate the "tier1" array strictly based on the real data provided in the context.
         
         ${sharedBudgetContext ? `
         BUDGET ORCHESTRATION CONTEXT (USE AS A SUPPORTING SIGNAL, DO NOT OVERWRITE YOUR SCORING LOGIC):
@@ -102,34 +190,65 @@ export function PreFunnelIntelligence() {
         ` : ''}
 
         INSTRUCTIONS:
-        0. **Platform Detection**: Analyze the provided URL data and website content to detect which ad platforms (e.g., Meta, TikTok, Google Ads, Snapchat, Pinterest) the business is currently active on, or has pixels installed for. Identify what they are using vs what they should be using.
-        1. **Competitor Intel**: Do NOT return generic competitors. Identify at least 3-5 REAL competitors in this specific niche. 
-           - Designate a "Top Competitor" and provide a detailed 'topCompetitorRationale' explaining exactly WHY they are leading the market (e.g., superior ad hooks, better pricing psychology, faster delivery, higher trust signals).
-           - Identify specific "Gaps" you can exploit.
-        2. **Market Trends**: Provide credible, data-backed trends. What is actually working in this niche's ad creative right now? (e.g., "Problem-Solution UGC", "Founder Story", "Side-by-side comparison").
-        3. **Funnel Strategy**: This MUST BE UNIQUE. Do not use the same strategy for every business. 
-           - **strategy**: A 2-3 sentence high-level tactical approach for this funnel stage.
-           - **adSetDetails**: Detailed targeting instructions (interests, lookalikes, behaviors).
-           - **creativeBreakdown**: Exactly what visual format to use (e.g., "UGC Testimonial", "Product Demo", "Problem/Solution Carousel").
-           - **contentCopy**: A complete, ready-to-use ad copy in ${language}.
-           - If it's Lead Gen, focus on friction vs. volume. 
-           - If it's E-commerce, focus on AOV and LTV.
-           - Budget Rationale: Explain the budget based on the specific industry benchmarks for ${url}. ALWAYS use ${currency} as the main currency unit.
-        4. **Execution Roadmap**: Focus on specific, high-impact tactical fixes.
-        5. **Shared Funnel Context**: You MUST return a "sharedFunnelContext" object holding:
-           - funnelScore (1-10)
-           - readinessScore (1-10)
-           - funnelComplexity ("High", "Medium", "Low")
-           - recommendedTestingBudget (numeric amount)
-           - scalingConfidence ("High", "Medium", "Low")
-           - acquisitionDifficulty ("High", "Medium", "Low")
-           - trustSignalScore (1-10)
-           - rationale (explaining WHY you generated this context based on Budget signals if provided)
+        PHASE 0: FORENSIC BUSINESS AUDIT
+        - Analyze the business model (B2B, B2C, SaaS, Agency, etc.) based on the URL.
+        - Determine the Brand Voice and Target Avatar profile.
+        - Identify Conversion Friction (Why would a user NOT buy?).
+        
+        PHASE 1: COMPETITOR CONTENT BENCHMARKING
+        - Analyze REAL competitors currently running ads.
+        - What content formats are they winning with? (e.g. "Direct comparison tables", "Problem-solution UGC", "Founder story clips").
+        - Identify the specific gaps we can exploit.
 
-        CRITICAL REQUIREMENT: All string values inside the JSON MUST be written in ${language}. Do not write the values in English. ONLY the JSON keys themselves must remain in English.
+        1. **Competitor Intel:** 
+           - Identify 3 to 6 STRONG, ESTABLISHED REAL BRAND COMPETITORS from the Market Research Context. Filter out weak drop-shipping pages and strictly focus on the highest authority MANUFACTURER brands or top substitutes in the market (e.g. Braun, Philips).
+           - DO NOT INVENT fake competitor names out of thin air. Rely entirely on the research context to name real businesses.
+           - Ensure EVERY competitor is UNIQUE. DO NOT output duplicate names.
+           - STRICTLY DO NOT list general marketplaces (e.g., Amazon, Noon, Jumia), local retail stores, pharmacies, or distributors as competitors. Focus entirely on the BRANDS that own the competing products.
+           - Designate a "Top Competitor" and provide a detailed 'topCompetitorRationale'.
+           - Include 'campaignsCount' (e.g. "15 Campaigns"), and 'campaignTypes' array (e.g., ["Lead Generation", "Sales", "Messages"]) indicating what kind of campaigns they run.
+           - Identify their specific advertising platforms and strategy in 'platforms' (e.g. Meta vs TikTok, what they run on each, their objectives, and which drives the most purchases).
+           - CRITICAL: STRICT BUDGET & COST REALISM via REVERSE ENGINEERING: You MUST calculate 'estimatedCostPerPurchase', 'estimatedCostPerLead', and 'estimatedCostPerMessage' using mathematical reverse engineering (CPC / CR) and behavioral indicators.
+           - REVERSE ENGINEERING FRAMEWORK:
+             1. Determine CPC (Cost Per Click): Estimate CPC based on current benchmarks and keyword auction strength for the specific platform/country. (e.g. If CPM is 120 and CTR is 2%, CPC = ~6).
+             2. Determine CR (Conversion Rate): Estimate their website/funnel CR based on its quality (e.g., 2-3% for high-quality smooth stores like Shopify, <1% for traditional/slow stores, or 5-12% close rate for direct WhatsApp sales).
+             3. Calculate Expected CPA: Expected CPA = CPC / CR. (Example: If CPC is 6, and CR is 2% (0.02). CPA = 6 / 0.02 = 300).
+           - BEHAVIORAL INDICATORS (Proxies for CPA health):
+             1. Ad Longevity: If their top ads have been running for >1-2 months, their CPA is highly profitable.
+             2. AOV Margin Limit: A sustainable competitor's CPA almost NEVER exceeds 25%-35% of their average selling price (AOV). If they sell at 2000, CPA maxes at 500-700. Provide EXTREMELY HIGH-ACCURACY numbers based on these exact methods.
+             3. Messaging campaigns: Message/Lead costs are much lower (e.g., in MENA, messaging campaigns often cost 10-35 local currency units).
+           - CRITICAL TRANSPARENCY: Populate 'estimatedAOV' (Average Order Value with currency, e.g. "1200 EGP" or "150 SAR"), 'topWinningProduct' (Name of the specific product they push the most), 'productCatalogs' (Array of their top selling items or categories), 'socialPages' (Array of FULL URLs of their EXACT, VERIFIED social media pages, e.g. ["https://www.instagram.com/brand"]), 'storeLinks' (Array of FULL URLs of their exact, verified website, e.g. ["https://brand.com"]), 'seoKeywords' (Array of their most profitable search keywords), and 'seoBacklinksProfile' (Brief summary of their off-page SEO strength and backlink strategy).
+           - 'priceRange' MUST ONLY BE ONE OF: "High-End", "Mid-Range", "Budget" or "Low-End" (فئة السعر). DO NOT INCLUDE NUMBERS IN THIS FIELD.
+           - 'topCampaignBreakdown': Provide deeply researched estimated details of their MOST SUCCESSFUL campaign (target regions, demographics, daily budget (MUST BE A REALISTIC LOCAL SPEND, e.g., "500-1500 EGP/day", not millions), ad formats, and caption angles). MUST BE GROUNDED IN REAL MARKET PRACTICES.
+           - rivalContentFormats: List the types of creative content they are scaling with.
+           - Identify specific "Gaps" you can exploit.
+        2. **Market Trends**: Provide credible trends. What is actually working in ad creative right now for this niche?
+        3. **Funnel Strategy**: This MUST BE UNIQUE. 
+           - Strategy, Ad Set Profiles, Ad Angles, etc.
+        4. **Execution Roadmap**: High-impact tactical fixes.
+        5. **Shared Funnel Context**: Scores and Budget context.
+        
+        CRITICAL OVERRIDE - LANGUAGE AND CURRENCY:
+        - EVERY SINGLE text field in the JSON (except property keys) MUST be written in ${language}. This includes business summaries, problem descriptions, strategy explanations, ad copy, and rationales.
+        - You may use essential English acronyms (e.g., CPA, ROAS, LTV) where appropriate, but the prose MUST be in ${language}.
+        - CRITICAL NUMBER OVERRIDE: ALL numbers, percentages, and currencies MUST be written in ONLY standard English digits (e.g., 0, 1, 2, 3, 450, 1500). DO NOT use Eastern Arabic numerals (like ١, ٢, ٣) anywhere in the output.
+        - NEVER translate numbers into language words either (e.g., do not write "one thousand" or "ألف", write "1000").
+        - ALL budget amounts, numeric estimates, and monetary values MUST be formatted using the ${currency} currency.
+
+        MANDATORY JSON RULES (CRITICAL):
+        - Return ONLY valid JSON. No markdown blocks, no conversational filler.
+        - JSON SAFETY: NEVER use raw double quotes (") inside a string value. Use single quotes (') instead.
+        - Example: "rationale": "This 'strategy' works best." (CORRECT) vs "rationale": "This "strategy" works best." (ERROR)
+        - Ensure the JSON is complete and not truncated.
         
         REQUIRED SCHEMA (STRICT):
         {
+          "businessAudit": {
+            "model": string,
+            "targetAvatarSummary": string,
+            "brandVoice": string,
+            "conversionFriction": string
+          },
           "businessSummary": { "name": string, "productType": string, "offer": string, "messaging": string, "visualQuality": string, "targetAudience": string, "marketPositioning": string, "brandStrength": string, "priceLevel": string, "detectedPlatforms": string[] },
           "executiveSummary": { "keyUnlock": string, "theTruth": string, "scaleOpportunity": string, "budgetContextImpact": string },
           "detectedProblems": Array<{ issue: string, description: string, severity: "Critical" | "High" | "Medium" }>,
@@ -146,7 +265,8 @@ export function PreFunnelIntelligence() {
           "competitorInsights": {
             "topCompetitorName": string,
             "topCompetitorRationale": string,
-            "tier1": Array<{ name: string, priceRange: string, adActivity: string, weakness: string, primaryContent: string, topHooks: string[], gap: string }>,
+            "rivalContentFormats": string[],
+            "tier1": Array<{ name: string, priceRange: string, adActivity: string, weakness: string, primaryContent: string, activeAdsCount: string, campaignsCount: string, platforms: Array<{ platformName: string, campaignObjective: string, contentFormats: string, isTopPurchaseDriver: boolean }>, topCampaignBreakdown: { targetRegions: string, targetAudience: string, estimatedDailyBudget: string, adTypes: string[], captionsAngles: string[] }, estimatedCostPerPurchase: string, estimatedCostPerLead: string, estimatedCostPerMessage: string, estimatedCPM: string, estimatedAOV: string, topWinningProduct: string, productCatalogs: string[], socialPages: string[], storeLinks: string[], seoKeywords: string[], seoBacklinksProfile: string, contentStrategy: string, topHooks: string[], gap: string }>,
             "marketBroad": Array<{ name: string, priceRange: string, adActivity: string }>
           },
           "marketTrends": { "winningHooks": string[], "creativeFormats": string[], "repeatedPatterns": string[], "missingInMarket": string[] },
@@ -158,9 +278,20 @@ export function PreFunnelIntelligence() {
               "marketCompetitiveBasis": string,
               "tof": { 
                 "strategy": string, 
+                "adSetProfiles": Array<{ name: string, detail: string }>,
                 "adSetDetails": string, 
                 "creativeBreakdown": string[], 
                 "contentCopy": string, 
+                "adAngles": string[],
+                "metaObjective": string,
+                "metaBudgetType": string,
+                "metaOptimizationGoal": string,
+                "metaPlacements": string,
+                "metaLocations": string,
+                "metaAgeRange": string,
+                "metaGender": string,
+                "metaExclusions": string,
+                "creativeFormat": string,
                 "hooks": string[],
                 "monthlyAmount": string,
                 "budgetPercentWithinPlatform": number,
@@ -171,9 +302,20 @@ export function PreFunnelIntelligence() {
               },
               "mof": { 
                 "strategy": string, 
+                "adSetProfiles": Array<{ name: string, detail: string }>,
                 "adSetDetails": string, 
                 "creativeBreakdown": string[], 
                 "contentCopy": string, 
+                "adAngles": string[],
+                "metaObjective": string,
+                "metaBudgetType": string,
+                "metaOptimizationGoal": string,
+                "metaPlacements": string,
+                "metaLocations": string,
+                "metaAgeRange": string,
+                "metaGender": string,
+                "metaExclusions": string,
+                "creativeFormat": string,
                 "hooks": string[],
                 "monthlyAmount": string,
                 "budgetPercentWithinPlatform": number,
@@ -184,9 +326,20 @@ export function PreFunnelIntelligence() {
               },
               "bof": { 
                 "strategy": string, 
+                "adSetProfiles": Array<{ name: string, detail: string }>,
                 "adSetDetails": string, 
                 "creativeBreakdown": string[], 
                 "contentCopy": string, 
+                "adAngles": string[],
+                "metaObjective": string,
+                "metaBudgetType": string,
+                "metaOptimizationGoal": string,
+                "metaPlacements": string,
+                "metaLocations": string,
+                "metaAgeRange": string,
+                "metaGender": string,
+                "metaExclusions": string,
+                "creativeFormat": string,
                 "hooks": string[],
                 "monthlyAmount": string,
                 "budgetPercentWithinPlatform": number,
@@ -222,13 +375,19 @@ export function PreFunnelIntelligence() {
           })
         });
 
+        const contentType = response.headers.get('content-type');
+        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+           const errText = await response.text();
+           throw new Error(`Server returned ${response.status}: ${errText.slice(0, 100)}`);
+        }
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         aiResult = data.result;
       }
 
       setAnalysisStep('Finalizing tactical funnel blueprint...');
-      const parsedStrategy = JSON.parse(aiResult);
+      
+      const parsedStrategy = safeParseJSON(aiResult);
       
       setStrategy(parsedStrategy);
       if (parsedStrategy.sharedFunnelContext) {
@@ -238,7 +397,7 @@ export function PreFunnelIntelligence() {
         });
       }
       setLastAnalyzedAt(Date.now());
-      setActiveTab('analysis');
+      setActiveTab('audit');
       setAnalysisStep('');
     } catch (err: any) {
       console.error('Error analyzing URL:', err);
@@ -249,6 +408,146 @@ export function PreFunnelIntelligence() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecalculateWithBudget = async () => {
+    if (!strategy || !customBudget) return;
+    
+    setUpdatingBudget(true);
+    setAnalysisStep('Recalculating funnel dynamics with new budget...');
+    
+    try {
+      const prompt = `
+        Act as a HIGH-PRECISION MEDIA BUYER & GROWTH ARCHITECT.
+        
+        CONTEXT:
+        You previously analyzed this business: ${url}
+        Existing Analysis Context: ${JSON.stringify({
+          businessSummary: strategy.businessSummary,
+          competitorInsights: strategy.competitorInsights,
+          marketTrends: strategy.marketTrends,
+          creativeAndAdvantage: strategy.creativeAndAdvantage,
+          funnelStrategy: strategy.funnelStrategy,
+          sharedFunnelContext: strategy.sharedFunnelContext
+        })}
+        
+        TASK:
+        The client has changed their budget to: ${customBudget}.
+        You MUST recalculate and optimize the funnel strategy strictly for this new budget.
+        
+        INSTRUCTIONS:
+        1. Keep the business positioning and competitors the same.
+        2. Redistribute the ${customBudget} across the platforms already identified.
+        3. Update ALL numeric values (monthlyAmount, adSetCount, adsPerSet, budgetRationale) within the funnelStrategy.
+        4. Adjust the "readinessScore", "funnelComplexity" and "recommendedTestingBudget" in sharedFunnelContext if the new budget changes the risk profile.
+        
+        CRITICAL OVERRIDE - LANGUAGE AND CURRENCY:
+        - EVERY SINGLE text field in the JSON MUST be written in ${language}.
+        - You may use essential English acronyms where appropriate, but the prose MUST be in ${language}.
+        - Use exactly ${currency} for all budget or monetary amounts.
+        
+        MANDATORY JSON RULES (CRITICAL):
+        - Return ONLY valid JSON. No markdown blocks, no conversational filler.
+        - JSON SAFETY: NEVER use raw double quotes (") inside a string value. Use single quotes (') instead.
+        - Example: "rationale": "This 'strategy' works best." (CORRECT) vs "rationale": "This "strategy" works best." (ERROR)
+        - Ensure the JSON is complete and not truncated.
+        
+        RETURN ONLY THE UPDATED "funnelStrategy" and "sharedFunnelContext" in the following JSON format.
+        
+        REQUIRED SCHEMA (STRICT):
+        {
+          "funnelStrategy": {
+            "platforms": [{
+              "platform": "...",
+              "standaloneMonthlyBudget": "...",
+              "budgetRationale": "...",
+              "marketCompetitiveBasis": "...",
+              "tof": {
+                "strategy": "...", "adSetProfiles": [{"name": "...", "detail": "..."}], "adSetDetails": "...", "creativeBreakdown": ["..."], "contentCopy": "...", "adAngles": ["..."],
+                "metaObjective": "...", "metaBudgetType": "...", "metaOptimizationGoal": "...", "metaPlacements": "...", 
+                "metaLocations": "...", "metaAgeRange": "...", "metaGender": "...", "metaExclusions": "...",
+                "creativeFormat": "...",
+                "hooks": ["..."],
+                "monthlyAmount": "...", "budgetPercentWithinPlatform": 0, "campaignSetup": "...", "adSetCount": 0, "adsPerSet": 0, "rationale": "..."
+              },
+              "mof": {
+                "strategy": "...", "adSetProfiles": [{"name": "...", "detail": "..."}], "adSetDetails": "...", "creativeBreakdown": ["..."], "contentCopy": "...", "adAngles": ["..."],
+                "metaObjective": "...", "metaBudgetType": "...", "metaOptimizationGoal": "...", "metaPlacements": "...", 
+                "metaLocations": "...", "metaAgeRange": "...", "metaGender": "...", "metaExclusions": "...",
+                "creativeFormat": "...",
+                "hooks": ["..."],
+                "monthlyAmount": "...", "budgetPercentWithinPlatform": 0, "campaignSetup": "...", "adSetCount": 0, "adsPerSet": 0, "rationale": "..."
+              },
+              "bof": {
+                "strategy": "...", "adSetProfiles": [{"name": "...", "detail": "..."}], "adSetDetails": "...", "creativeBreakdown": ["..."], "contentCopy": "...", "adAngles": ["..."],
+                "metaObjective": "...", "metaBudgetType": "...", "metaOptimizationGoal": "...", "metaPlacements": "...", 
+                "metaLocations": "...", "metaAgeRange": "...", "metaGender": "...", "metaExclusions": "...",
+                "creativeFormat": "...",
+                "hooks": ["..."],
+                "monthlyAmount": "...", "budgetPercentWithinPlatform": 0, "campaignSetup": "...", "adSetCount": 0, "adsPerSet": 0, "rationale": "..."
+              }
+            }]
+          },
+          "sharedFunnelContext": {
+            "funnelScore": 0,
+            "readinessScore": 0,
+            "funnelComplexity": "...",
+            "recommendedTestingBudget": 0,
+            "scalingConfidence": "...",
+            "acquisitionDifficulty": "...",
+            "trustSignalScore": 0,
+            "rationale": "..."
+          }
+        }
+
+        MANDATORY JSON RULES (CRITICAL):
+        - Return ONLY valid JSON. No markdown blocks, no conversational filler.
+        - JSON SAFETY: NEVER use raw double quotes (") inside a string value. Use single quotes (') instead.
+        - Example: "rationale": "This 'strategy' works best." (CORRECT) vs "rationale": "This "strategy" works best." (ERROR)
+        - Ensure the JSON is complete and not truncated.
+      `;
+
+      let aiResult = '';
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, true);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': user!.uid
+          },
+          body: JSON.stringify({ prompt, model: aiProvider })
+        });
+        
+        const contentType = response.headers.get('content-type');
+        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+           const errText = await response.text();
+           throw new Error(`Server returned ${response.status}: ${errText.slice(0, 100)}`);
+        }
+        const data = await response.json();
+        aiResult = data.result;
+      }
+
+      const parsed = safeParseJSON(aiResult);
+      if (parsed.funnelStrategy && parsed.sharedFunnelContext) {
+        setStrategy({
+          ...strategy,
+          funnelStrategy: parsed.funnelStrategy,
+          sharedFunnelContext: parsed.sharedFunnelContext
+        });
+        setSharedFunnelContext({
+          ...parsed.sharedFunnelContext,
+          updatedAt: Date.now()
+        });
+      }
+    } catch (err: any) {
+      console.error('Recalculation error:', err);
+      setError('Failed to update funnel with new budget.');
+    } finally {
+      setUpdatingBudget(false);
+      setAnalysisStep('');
     }
   };
 
@@ -268,8 +567,6 @@ export function PreFunnelIntelligence() {
       INSTRUCTIONS:
       1. This plan must be HYPER-SPECIFIC to the business at ${url}. Do not give generic advice like "create good content".
       2. Breakdown the strategy into 3 distinct phases (Month 1: Foundation & Fixes, Month 2: Optimization & Velocity, Month 3: Scale & Dominance).
-      3. Language: ${language}.
-      4. Use ${currency} for any budget or cost estimates.
       3. For each month, include:
          - Core Strategic Focus (The "North Star" for that month).
          - Tactical Tasks: Specific technical or creative fixes.
@@ -277,7 +574,11 @@ export function PreFunnelIntelligence() {
          - Creative Briefs: Specific concepts for ads.
          - Expected KPIs: Realistic growth targets based on the current state.
       
-      CRITICAL REQUIREMENT: The output MUST be written entirely in ${language}. Use professional business terminology.
+      CRITICAL OVERRIDE - LANGUAGE AND CURRENCY:
+      - EVERY SINGLE text field in the response MUST be written in ${language}. Your entire output must be native ${language}.
+      - You may use essential English acronyms (like CPA, ROAS, LTV) where appropriate, but the prose MUST be entirely in ${language}.
+      - ALL budget amounts, numeric estimates, and monetary values MUST be formatted using exactly ${currency}.
+      
       Format: Clean Markdown with bold headings and technical bullet points.`;
 
       let aiResult = '';
@@ -297,6 +598,11 @@ export function PreFunnelIntelligence() {
           })
         });
 
+        const contentType = response.headers.get('content-type');
+        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+           const errText = await response.text();
+           throw new Error(`Server returned ${response.status}: ${errText.slice(0, 100)}`);
+        }
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         aiResult = data.result;
@@ -317,6 +623,120 @@ export function PreFunnelIntelligence() {
     }
   };
 
+  const handleGenerateContent = async () => {
+    if (!strategy || !url) return;
+    
+    setGeneratingContent(true);
+    try {
+      const prompt = `
+        Act as a WORLD-CLASS DIRECT-RESPONSE COPYWRITER and CONTENT ARCHITECT.
+        
+        GOAL: Generate a high-conversion ad copy suite for the business at ${url}.
+        
+        CRITICAL CONTENT STRUCTURE:
+        - For EACH funnel phase (TOF, MOF, BOF), you MUST generate exactly 3 AD SETS.
+        - AD SET 1: Targeted (Females 18-35, Cairo/Giza/Alex, Beauty/Skincare/Cosmetics interests).
+        - AD SET 2: Competitor Stack (Lookalikes / Competitor Interest targeting).
+        - AD SET 3: Broad Audience (No interests, open targeting for algorithm testing).
+        - Each Ad Set MUST contain at least 3 unique AD VARIATIONS, each with a distinct "angle" (e.g., FOMO, Benefit-driven, Social Proof).
+        
+        CONTEXT:
+        - Business Profile: ${JSON.stringify(strategy.businessSummary)}
+        - Competitor Intelligence (BENCHMARK): ${JSON.stringify(strategy.competitorInsights.tier1)}
+        - Market Trends: ${JSON.stringify(strategy.marketTrends)}
+        - Funnel Strategy: ${JSON.stringify(strategy.funnelStrategy)}
+        - Creative Philosophy: ${strategy.creativeAndAdvantage.uniqueAngle}
+        - Brand Voice: ${strategy.creativeAndAdvantage.brandVoice}
+        
+        CRITICAL COPYWRITING INSTRUCTIONS:
+        1. HUMAN-FIRST WRITING: Avoid generic AI phrases (e.g., "In the world of...", "Unlock your potential", "Experience the difference"). Use punchy, conversational, and persuasive native ${language}.
+        2. COMPETITOR COUNTER-MOVES: Analyze the competitor "Top Hooks" and "Gaps". Write copy that highlights why ${url} is superior. If competitors use generic ads, use deep emotional storytelling.
+        3. DIVERSE PSYCHOLOGICAL ANGLES: For every Ad Set, vary the "angle" used in its ads. Use:
+           - FOMO (Scarcity & Urgency): "Only 5 spots left", "24-hour flash sale".
+           - EMOTIONAL/PAIN: Speak directly to the frustration of the customer.
+           - SOCIAL PROOF/AUTHORITY: "Join 5,000+ happy clients", "Recommended by experts".
+           - BENEFITS-DRIVEN: Focus on the transformation, not just features.
+           - PATTERN INTERRUPT: Start with a surprising or controversial statement.
+        4. STRUCTURE: 
+           - For each platform in the funnel, generate content for ALL 3 phases (TOF, MOF, BOF).
+           - TOF: Focus on Problem Awareness & Curiosity.
+           - MOF: Focus on Comparison, Trust, and Education.
+           - BOF: Focus on Hard Offers, Urgency, and Objection Handling.
+        
+        REQUIRED SCHEMA (STRICT JSON):
+        {
+          "platforms": [
+            {
+              "platform": "string (e.g., Meta Ads)",
+              "phases": [
+                {
+                  "name": "string (e.g., Top of Funnel)",
+                  "adSets": [
+                    {
+                      "targetingProfile": "string (e.g., Broad Interests / Competitor Lookalike)",
+                      "targetingDetails": {
+                        "demographics": "string (e.g., Females 18-35)",
+                        "locations": "string (e.g., Cairo, Giza, Alexandria)",
+                        "interests": "string[] (e.g., Beauty salons, Skincare)",
+                        "strategy": "string (e.g., Detailed Interests vs Broad Testing)"
+                      },
+                      "ads": [
+                        {
+                          "headline": "string (High-Impact)",
+                          "primaryText": "string (Persuasive long/medium form copy)",
+                          "cta": "string (Action-Oriented)",
+                          "angle": "string (FOMO, Emotional, Social Proof, etc.)"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        
+        TARGETING BENCHMARKS (IF RELEVANT TO BEAUTY/EGYPT):
+        - Demographics: Females 18-35
+        - Locations: Cairo, Giza, Alexandria, and Major Governorates.
+        - Interests: Beauty salons, Skincare, Hair removal, Cosmetics.
+        - Plus inclusion of "Broad Audience" segments for Meta Algorithm testing.
+        
+        MANDATORY JSON RULES (CRITICAL):
+        - Return ONLY valid JSON.
+        - JSON SAFETY: NEVER use raw double quotes (") inside a string value. Use single quotes (') instead.
+        - Prose must be entirely in professional ${language}.
+      `;
+
+      let aiResult = '';
+      if (aiProvider === 'gemini') {
+        aiResult = await analyzeWithGemini(prompt, true);
+      } else {
+        const response = await fetch('/api/intelligence/advanced-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': user!.uid },
+          body: JSON.stringify({ prompt, model: aiProvider || 'gemini' })
+        });
+        
+        const contentType = response.headers.get('content-type');
+        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+           const errText = await response.text();
+           throw new Error(`Server returned ${response.status}: ${errText.slice(0, 100)}`);
+        }
+        const data = await response.json();
+        aiResult = data.result;
+      }
+
+      const parsed = safeParseJSON(aiResult);
+      setContentAnalysis(parsed);
+    } catch (err: any) {
+      console.error('Error generating content:', err);
+      setError('Failed to generate full ad content suite.');
+    } finally {
+      setGeneratingContent(false);
+    }
+  };
+
   const renderTabButton = (id: TabType, label: string, icon: React.ReactNode) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -324,7 +744,7 @@ export function PreFunnelIntelligence() {
         "flex items-center gap-2 px-6 py-4 text-sm font-bold transition-all duration-300 border-b-2 whitespace-nowrap",
         activeTab === id 
           ? "border-blue-500 text-blue-400 bg-blue-500/5" 
-          : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5"
+          : "border-transparent text-muted-foreground hover:text-muted-foreground hover:bg-white/5"
       )}
     >
       {icon}
@@ -341,11 +761,11 @@ export function PreFunnelIntelligence() {
         
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-12">
           <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-6 leading-[1.1]">
+            <h1 className="text-4xl md:text-6xl font-black text-foreground tracking-tight mb-6 leading-[1.1]">
               Pre-Funnel & <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500">Competitor Intel</span>
             </h1>
-            <p className="text-gray-400 text-lg leading-relaxed font-medium">
+            <p className="text-muted-foreground text-lg leading-relaxed font-medium">
               The ultimate strategist's tool. Paste any URL to reverse-engineer their business model, detect market gaps, and generate a battle-tested funnel strategy.
             </p>
           </div>
@@ -390,6 +810,17 @@ export function PreFunnelIntelligence() {
                   <option value="CAD ($)">CAD ($)</option>
                 </select>
               </div>
+              
+              <div className="relative">
+                <Users className="absolute left-4 top-4 w-4 h-4 text-gray-500" />
+                <textarea
+                  placeholder="Optional: List specific competitors you want to enforce (names or links)..."
+                  value={customCompetitors}
+                  onChange={(e) => setCustomCompetitors(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-[#0B0F19] border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white placeholder-gray-500 transition-all font-medium min-h-[60px] text-xs resize-y"
+                />
+              </div>
+
               <button
                 onClick={handleAnalyze}
                 disabled={loading || !url}
@@ -457,43 +888,82 @@ export function PreFunnelIntelligence() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
           {/* Navigation Phases */}
           <div className="flex overflow-x-auto border-b border-white/5 no-scrollbar sticky top-0 bg-[#0B0F19]/80 backdrop-blur-md z-30 justify-center">
-            {renderTabButton('analysis', 'Business Analysis', <Shield className="w-4 h-4" />)}
+            {renderTabButton('audit', 'Forensic Audit', <Search className="w-4 h-4" />)}
+            {renderTabButton('analysis', 'Business Scan', <Shield className="w-4 h-4" />)}
             {renderTabButton('competitors', 'Competitor Intel', <Target className="w-4 h-4" />)}
             {renderTabButton('trends', 'Market Trends', <TrendingUp className="w-4 h-4" />)}
             {renderTabButton('funnel', 'Funnel Strategy', <Layout className="w-4 h-4" />)}
             {renderTabButton('creative', 'Creative & Advantage', <Zap className="w-4 h-4" />)}
             {renderTabButton('roadmap', 'Execution Roadmap', <Rocket className="w-4 h-4" />)}
+            {renderTabButton('content', 'Content Architect', <PenTool className="w-4 h-4" />)}
           </div>
 
           {/* Tab Content */}
           <div className="min-h-[600px]">
+            {activeTab === 'audit' && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="p-10 rounded-[2.5rem] bg-indigo-500/5 border border-indigo-500/20 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                    <Search className="w-40 h-40" />
+                  </div>
+                  <div className="relative z-10 space-y-8">
+                    <div dir="auto">
+                      <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-4">Forensic Business Audit</h3>
+                      <p className="text-gray-400 text-lg font-medium leading-relaxed max-w-2xl">
+                        We analyzed your business architecture and brand signals to determine the optimal growth path.
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3 text-right" dir="auto">
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-left">Business Model Identification</p>
+                        <p className="text-foreground font-bold leading-relaxed">{strategy.businessAudit?.model}</p>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3 text-right" dir="auto">
+                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest text-left">Brand Voice & Persona</p>
+                        <p className="text-gray-200 font-bold leading-relaxed">{strategy.businessAudit?.brandVoice}</p>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3 text-right" dir="auto">
+                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest text-left">Target Avatar Profile</p>
+                        <p className="text-gray-200 font-bold leading-relaxed">{strategy.businessAudit?.targetAvatarSummary}</p>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/10 space-y-3 text-right" dir="auto">
+                        <p className="text-[10px] font-black text-red-400 uppercase tracking-widest text-left">Major Conversion Friction</p>
+                        <p className="text-gray-200 font-bold leading-relaxed">{strategy.businessAudit?.conversionFriction}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'analysis' && (
               <div className="space-y-8 animate-in fade-in duration-500">
                 {/* Executive Summary Dashboard - Now only on the first tab */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="glass-panel p-6 rounded-3xl border-blue-500/20 bg-blue-500/5 flex items-start gap-4">
-                    <div className="p-3 rounded-2xl bg-blue-500/20">
+                    <div className="p-3 rounded-2xl bg-blue-500/20 shrink-0">
                       <Sparkles className="w-6 h-6 text-blue-400" />
                     </div>
-                    <div>
+                    <div className="w-full text-right" dir="auto">
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1">Growth Unlock</h4>
                       <p className="text-white font-bold text-sm leading-snug">{strategy.executiveSummary?.keyUnlock}</p>
                     </div>
                   </div>
                   <div className="glass-panel p-6 rounded-3xl border-red-500/20 bg-red-500/5 flex items-start gap-4">
-                    <div className="p-3 rounded-2xl bg-red-500/20">
+                    <div className="p-3 rounded-2xl bg-red-500/20 shrink-0">
                       <AlertCircle className="w-6 h-6 text-red-400" />
                     </div>
-                    <div>
+                    <div className="w-full text-right" dir="auto">
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Survival Threat</h4>
                       <p className="text-white font-bold text-sm leading-snug">{strategy.executiveSummary?.theTruth}</p>
                     </div>
                   </div>
                   <div className="glass-panel p-6 rounded-3xl border-emerald-500/20 bg-emerald-500/5 flex items-start gap-4">
-                    <div className="p-3 rounded-2xl bg-emerald-500/20">
+                    <div className="p-3 rounded-2xl bg-emerald-500/20 shrink-0">
                       <CheckCircle2 className="w-6 h-6 text-emerald-400" />
                     </div>
-                    <div>
+                    <div className="w-full text-right" dir="auto">
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-1">Scale Opportunity</h4>
                       <p className="text-white font-bold text-sm leading-snug">{strategy.executiveSummary?.scaleOpportunity || strategy.creativeAndAdvantage?.uniqueAngle}</p>
                     </div>
@@ -627,65 +1097,248 @@ export function PreFunnelIntelligence() {
                 )}
 
                 <div>
-                  <div className="flex items-center justify-between mb-8">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                     <h2 className="text-2xl font-black text-white flex items-center gap-3">
                       <Target className="w-6 h-6 text-indigo-400" />
                       Direct Market Rivals
                     </h2>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                      Deep Competitive Analysis
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 bg-white/5 px-4 py-2 rounded-full border border-white/5">
+                        Deep Competitive Analysis
+                      </p>
+                      <button 
+                        onClick={() => navigate('/growth-planner', { state: { strategyData: strategy } })}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-full text-[10px] font-bold transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:shadow-[0_0_25px_rgba(79,70,229,0.5)]"
+                      >
+                        <Copy className="w-3 h-3" />
+                        Collect & Copy
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {strategy?.competitorInsights?.tier1?.map((comp: any, idx: number) => (
-                      <div key={idx} className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-3xl pointer-events-none"></div>
+                      <div key={idx} className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-indigo-500/30 transition-all group relative overflow-hidden flex flex-col h-full">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl pointer-events-none"></div>
                         
-                        <div className="flex items-center justify-between mb-6 relative z-10">
-                          <div>
-                            <h3 className="text-xl font-black text-white leading-none mb-1">{comp.name}</h3>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter">{comp.priceRange}</span>
-                              <span className="w-1 h-1 rounded-full bg-white/10"></span>
-                              <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">{comp.adActivity}</span>
+                        <div className="flex flex-col items-start justify-between mb-6 relative z-10 w-full gap-4 sm:flex-row sm:items-start">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-2xl font-black text-white leading-none mb-2 break-words">{comp.name}</h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {comp.topWinningProduct && (
+                                <span className="text-[11px] font-black text-pink-300 bg-pink-500/10 px-2 py-0.5 rounded-md border border-pink-500/20 shadow-sm">{comp.topWinningProduct}</span>
+                              )}
+                              <span className="w-1 h-1 rounded-full bg-white/10 hidden sm:block"></span>
+                              <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter bg-blue-500/10 px-2 py-0.5 rounded-md">{comp.adActivity}</span>
+                              
+                              {comp.activeAdsCount && (
+                                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter bg-purple-500/10 px-2 py-0.5 rounded-md">{comp.activeAdsCount} Active Ads</span>
+                              )}
+                              {comp.campaignsCount && (
+                                <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter bg-amber-500/10 px-2 py-0.5 rounded-md">{comp.campaignsCount} Campaigns</span>
+                              )}
                             </div>
+                            
+                            {(comp.platforms && comp.platforms.length > 0) || (comp.campaignTypes && comp.campaignTypes.length > 0) ? (
+                              <div className="mt-3 flex gap-2 flex-wrap">
+                                {comp.platforms?.map((p: any, i: number) => (
+                                  typeof p === 'string' ? (
+                                    <span key={i} className="text-[9px] bg-white/5 text-gray-400 px-2 py-1 rounded border border-white/10 font-bold h-fit">{p}</span>
+                                  ) : (
+                                    <div key={i} className="flex flex-col gap-1 p-2 rounded-lg bg-[#0B0F19] border border-white/5 text-left mb-1 flex-1 min-w-[140px]">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-white font-black uppercase tracking-widest">{p.platformName}</span>
+                                        {p.isTopPurchaseDriver && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded shadow-sm font-black">TOP ROI</span>}
+                                      </div>
+                                      <p className="text-[9px] text-indigo-200 mt-1"><span className="text-gray-500 font-bold block mb-0.5 uppercase tracking-widest text-[8px]">Objective</span> {p.campaignObjective}</p>
+                                      <p className="text-[9px] text-gray-300"><span className="text-gray-500 font-bold block mb-0.5 uppercase tracking-widest text-[8px]">Content</span> {p.contentFormats}</p>
+                                    </div>
+                                  )
+                                ))}
+                                {comp.campaignTypes?.map((t: string, i: number) => (
+                                  <span key={i} className="text-[9px] bg-indigo-500/10 text-indigo-300 px-2 py-1 rounded border border-indigo-500/20 font-bold h-fit mb-1">{t}</span>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
-                          <button 
-                            onClick={() => navigate('/ad-spy', { state: { searchTerms: comp.name } })} 
-                            className="p-3 rounded-2xl bg-white/5 hover:bg-indigo-500/20 text-gray-400 hover:text-indigo-400 border border-white/5 transition-all group/btn"
-                            title="Spy on Ads"
-                          >
-                            <Eye className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
-                          </button>
+                          
+                          <div className="flex gap-2 relative z-30">
+                            {comp.storeLinks?.map((link: string, i: number) => (
+                              <a key={`store-${i}`} href={link.startsWith('http') ? link : `https://${link}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all z-30 cursor-pointer">
+                                <Globe className="w-4 h-4" />
+                              </a>
+                            ))}
+                            {comp.socialPages?.map((link: string, i: number) => (
+                              <a key={`social-${i}`} href={link.startsWith('http') ? link : `https://${link}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/20 transition-all z-30 cursor-pointer">
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            ))}
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigate('/ad-spy', { state: { searchTerms: comp.name } });
+                              }} 
+                              className="p-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-gray-300 hover:text-indigo-400 border border-white/5 transition-all group/btn z-40 cursor-pointer relative"
+                              title="Spy on Ads"
+                            >
+                              <Eye className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="space-y-6 text-right relative z-10">
+                        <div className="space-y-4 text-right relative z-10 flex-1 flex flex-col">
+                          
+                          {/* Key Strategy Blocks */}
                           <div className="grid grid-cols-2 gap-3">
-                            <div className="p-3 rounded-2xl bg-[#0B0F19] border border-white/5">
-                              <h4 className="text-[9px] uppercase tracking-widest text-gray-500 font-black mb-1 text-left">Main Content</h4>
-                              <p className="text-[10px] text-indigo-200/80 font-bold italic">{comp.primaryContent || "Multi-format"}</p>
+                            <div className="p-4 rounded-xl bg-[#0B0F19] border border-white/5 shadow-inner text-left flex flex-col">
+                              <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-black mb-2 border-b border-white/5 pb-2">Main Content</h4>
+                              <p className="text-xs text-indigo-100 font-bold leading-relaxed">{comp.primaryContent || "Multi-format"}</p>
                             </div>
-                            <div className="p-3 rounded-2xl bg-[#0B0F19] border border-white/5">
-                              <h4 className="text-[9px] uppercase tracking-widest text-gray-500 font-black mb-1 text-left">Top Weakness</h4>
-                              <p className="text-[10px] text-red-400 font-bold italic">{comp.weakness}</p>
+                            <div className="p-4 rounded-xl bg-[#0B0F19] border border-white/5 shadow-inner text-left flex flex-col">
+                              <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-black mb-2 border-b border-warning/5 border-red-500/10 pb-2">Top Weakness</h4>
+                              <p className="text-xs text-red-300 font-bold leading-relaxed">{comp.weakness}</p>
+                            </div>
+                          </div>
+                          
+                          {/* AOV & Products */}
+                          {(comp.estimatedAOV || comp.priceRange || (comp.productCatalogs && comp.productCatalogs.length > 0)) && (
+                             <div className="p-4 rounded-xl bg-[#0B0F19]/80 border border-emerald-500/10 shadow-inner flex flex-col gap-3">
+                                {(comp.estimatedAOV || comp.priceRange) && (
+                                  <div className="flex items-center justify-between w-full border-b border-white/5 pb-2">
+                                    <span className="text-[10px] uppercase tracking-widest text-emerald-500/70 font-black">Est. AOV / Pricing</span>
+                                    <span className="text-xs font-black text-emerald-400">
+                                      {comp.estimatedAOV ? comp.estimatedAOV : ''} 
+                                      {comp.priceRange ? ` (${comp.priceRange})` : ''}
+                                    </span>
+                                  </div>
+                                )}
+                                {comp.productCatalogs && comp.productCatalogs.length > 0 && (
+                                   <div className="w-full text-left">
+                                      <span className="text-[9px] uppercase tracking-widest text-gray-500 font-black block mb-2">Catalog & Top Offers</span>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {comp.productCatalogs.map((prod: string, i: number) => (
+                                          <span key={i} className="text-[10px] font-bold text-gray-300 bg-white/5 px-2.5 py-1 rounded-md border border-white/10">{prod}</span>
+                                        ))}
+                                      </div>
+                                   </div>
+                                )}
+                             </div>
+                          )}
+
+                          {/* Cost Metrics */}
+                          {(comp.estimatedCostPerPurchase || comp.estimatedCostPerLead || comp.estimatedCostPerMessage || comp.estimatedCPM) && (
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                              {comp.estimatedCostPerPurchase && (
+                                <div className="p-3 border border-blue-500/20 bg-blue-500/5 rounded-xl text-center shadow-inner flex flex-col justify-center">
+                                  <p className="text-[9px] font-black text-blue-500/70 uppercase tracking-widest mb-1">CPA (Purchase)</p>
+                                  <p className="text-sm font-black text-blue-400">{comp.estimatedCostPerPurchase}</p>
+                                </div>
+                              )}
+                              {comp.estimatedCostPerLead && (
+                                <div className="p-3 border border-emerald-500/20 bg-emerald-500/5 rounded-xl text-center shadow-inner flex flex-col justify-center">
+                                  <p className="text-[9px] font-black text-emerald-500/70 uppercase tracking-widest mb-1">CPL (Lead)</p>
+                                  <p className="text-sm font-black text-emerald-400">{comp.estimatedCostPerLead}</p>
+                                </div>
+                              )}
+                              {comp.estimatedCostPerMessage && (
+                                <div className="p-3 border border-amber-500/20 bg-amber-500/5 rounded-xl text-center shadow-inner flex flex-col justify-center">
+                                  <p className="text-[9px] font-black text-amber-500/70 uppercase tracking-widest mb-1">CPA (Message)</p>
+                                  <p className="text-sm font-black text-amber-400">{comp.estimatedCostPerMessage}</p>
+                                </div>
+                              )}
+                              {comp.estimatedCPM && (
+                                <div className="p-3 border border-purple-500/20 bg-purple-500/5 rounded-xl text-center shadow-inner flex flex-col justify-center">
+                                  <p className="text-[9px] font-black text-purple-500/70 uppercase tracking-widest mb-1">Est. CPM</p>
+                                  <p className="text-sm font-black text-purple-400">{comp.estimatedCPM}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* SEO & Off-page */}
+                          {(comp.seoKeywords || comp.seoBacklinksProfile) && (
+                             <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10 relative text-left">
+                                <h4 className="text-[9px] uppercase tracking-widest text-indigo-400/70 font-black mb-3 flex items-center gap-1">
+                                  <Search className="w-3 h-3" /> SEO Pipeline
+                                </h4>
+                                {comp.seoKeywords && comp.seoKeywords.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mb-3">
+                                    {comp.seoKeywords.map((kw: string, i: number) => (
+                                      <span key={i} className="text-[9px] font-bold text-indigo-300 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">{kw}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                {comp.seoBacklinksProfile && (
+                                  <p className="text-[11px] text-indigo-200/80 font-medium leading-relaxed" dir="auto">{comp.seoBacklinksProfile}</p>
+                                )}
+                             </div>
+                          )}
+
+                          {comp.topCampaignBreakdown && (
+                             <div className="p-4 rounded-xl bg-gradient-to-br from-pink-500/10 to-purple-500/5 border border-pink-500/20 relative text-left mt-2">
+                                <h4 className="text-[9px] uppercase tracking-widest text-pink-400 font-black mb-3 flex items-center gap-1">
+                                  <Target className="w-3 h-3" /> Winning Campaign Breakdown
+                                </h4>
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-[8px] uppercase font-bold text-gray-500 block mb-0.5">Target Regions</span>
+                                      <span className="text-[10px] text-purple-200">{comp.topCampaignBreakdown.targetRegions}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-[8px] uppercase font-bold text-gray-500 block mb-0.5">Est. Daily Budget</span>
+                                      <span className="text-[10px] font-black text-emerald-400">{comp.topCampaignBreakdown.estimatedDailyBudget}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-[8px] uppercase font-bold text-gray-500 block mb-0.5">Ad Formats</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {comp.topCampaignBreakdown.adTypes?.map((t: string, ti: number) => (
+                                        <span key={ti} className="text-[8px] bg-white/10 text-white px-1.5 py-0.5 rounded uppercase">{t}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  {comp.topCampaignBreakdown.captionsAngles && comp.topCampaignBreakdown.captionsAngles.length > 0 && (
+                                    <div>
+                                      <span className="text-[8px] uppercase font-bold text-gray-500 block mb-1">Caption Angles</span>
+                                      <ul className="list-disc pl-3 text-[10px] text-pink-100/80 space-y-1 text-right" dir="auto">
+                                        {comp.topCampaignBreakdown.captionsAngles.map((a: string, ai: number) => (
+                                          <li key={ai}>{a}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                             </div>
+                          )}
+
+                          <div className="flex-1"></div>
+
+                          {comp.contentStrategy && (
+                            <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-right mt-4" dir="auto">
+                               <h4 className="text-[9px] uppercase tracking-widest text-gray-500 font-black mb-2 text-left">Content Strategy</h4>
+                               <p className="text-xs text-gray-300 font-medium leading-relaxed">{comp.contentStrategy}</p>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 gap-3 mt-3">
+                            <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
+                              <h4 className="text-[9px] uppercase tracking-widest text-indigo-400/70 font-black mb-3 text-left">Winning Hooks</h4>
+                              <div className="flex flex-wrap gap-2 justify-end">
+                                {comp.topHooks?.map((hook: string, hIdx: number) => (
+                                  <span key={hIdx} className="text-[11px] font-medium bg-indigo-500/10 text-indigo-200 px-3 py-1.5 rounded-lg border border-indigo-500/20 italic">
+                                    "{hook}"
+                                  </span>
+                                )) || <span className="text-[10px] text-gray-500 italic">No hooks detected</span>}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
-                            <h4 className="text-[10px] uppercase tracking-widest text-indigo-400 font-black mb-3 text-left">Winning Hooks</h4>
-                            <div className="flex flex-wrap gap-2 justify-end">
-                              {comp.topHooks?.map((hook: string, hIdx: number) => (
-                                <span key={hIdx} className="text-[10px] bg-indigo-500/10 text-indigo-200/70 px-2 py-1 rounded-lg border border-indigo-500/10 italic">
-                                  "{hook}"
-                                </span>
-                              )) || <span className="text-[10px] text-gray-500 italic">No hooks detected</span>}
-                            </div>
-                          </div>
-
-                          <div className="p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+                          <div className="p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 mt-3">
                             <h4 className="text-[10px] uppercase font-black text-emerald-400 mb-1 text-left">Strategic Gap</h4>
-                            <p className="text-xs text-emerald-100 font-medium">{comp.gap}</p>
+                            <p className="text-xs text-emerald-100 font-medium text-left">{comp.gap}</p>
                           </div>
+
                         </div>
                       </div>
                     ))}
@@ -709,7 +1362,7 @@ export function PreFunnelIntelligence() {
                               <span className="text-[9px] text-purple-400/70 font-black uppercase tracking-tighter">{comp.adActivity || "Active"}</span>
                             </div>
                           </div>
-                          <div className="text-[9px] font-black text-gray-600 uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Insight Lock</div>
+                          <div className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Insight Lock</div>
                         </div>
                       ))}
                     </div>
@@ -767,19 +1420,76 @@ export function PreFunnelIntelligence() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-6 items-end">
-                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest text-right mb-1">Active Platform Node</div>
-                    <div className="relative group">
-                      <select 
-                        value={selectedPlatform}
-                        onChange={(e) => setSelectedPlatform(e.target.value)}
-                        className="bg-[#0B0F19] border border-white/10 text-white text-xs font-black uppercase tracking-widest rounded-2xl px-6 py-4 pr-12 outline-none focus:border-indigo-500/50 transition-all min-w-[280px] appearance-none cursor-pointer shadow-2xl hover:bg-white/5 ring-1 ring-white/5"
+                  <div className="flex flex-col md:flex-row gap-6 items-end">
+                    <div className="flex flex-col gap-2">
+                      <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Send Analysis</div>
+                      <button
+                        onClick={() => {
+                          navigate('/budget', { state: { url, budget: customBudget, currency, funnelStrategy: strategy?.funnelStrategy } });
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 hover:from-yellow-500/30 hover:to-orange-500/30 text-yellow-500 border border-yellow-500/30 text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2"
                       >
-                        {strategy?.funnelStrategy?.platforms?.map((p: any) => (
-                          <option key={p.platform} value={p.platform}>{p.platform || 'Platform'}</option>
-                        ))}
-                      </select>
-                      <ChevronRight className="w-5 h-5 text-gray-500 absolute right-4 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none transition-transform group-hover:text-indigo-400" />
+                        Send to Budget Planner
+                        <Target className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                       <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Adjust Total Monthly Budget</div>
+                       <div className="flex gap-2">
+                         <div className="relative group">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-400" />
+                            <input 
+                              type="text"
+                              placeholder="e.g. 5000"
+                              value={customBudget}
+                              onChange={(e) => setCustomBudget(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleRecalculateWithBudget()}
+                              className="bg-[#0B0F19] border border-white/10 text-white text-xs font-black rounded-xl pl-9 pr-4 py-3 outline-none focus:border-blue-500/50 transition-all w-24"
+                            />
+                         </div>
+                         <div className="relative group">
+                            <select 
+                              value={currency}
+                              onChange={(e) => setCurrency(e.target.value)}
+                              className="bg-[#0B0F19] border border-white/10 text-white text-xs font-black rounded-xl pl-3 pr-8 py-3 outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer"
+                            >
+                              <option value="USD ($)">USD ($)</option>
+                              <option value="EUR (€)">EUR (€)</option>
+                              <option value="EGP (ج.م)">EGP (ج.م)</option>
+                              <option value="SAR (ر.س)">SAR (ر.س)</option>
+                              <option value="AED (د.إ)">AED (د.إ)</option>
+                              <option value="GBP (£)">GBP (£)</option>
+                              <option value="AUD ($)">AUD ($)</option>
+                              <option value="CAD ($)">CAD ($)</option>
+                            </select>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                         </div>
+                         <button
+                           onClick={handleRecalculateWithBudget}
+                           disabled={updatingBudget || !customBudget}
+                           className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-xl transition-all flex items-center gap-2 disabled:opacity-50"
+                         >
+                           {updatingBudget ? <RefreshCw className="w-3 h-3 animate-spin" /> : <TrendingUp className="w-3 h-3" />}
+                           Apply
+                         </button>
+                       </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest text-right mb-1">Active Platform Node</div>
+                      <div className="relative group">
+                        <select 
+                          value={selectedPlatform}
+                          onChange={(e) => setSelectedPlatform(e.target.value)}
+                          className="bg-[#0B0F19] border border-white/10 text-white text-xs font-black uppercase tracking-widest rounded-2xl px-6 py-4 pr-12 outline-none focus:border-indigo-500/50 transition-all min-w-[280px] appearance-none cursor-pointer shadow-2xl hover:bg-white/5 ring-1 ring-white/5"
+                        >
+                          {strategy?.funnelStrategy?.platforms?.map((p: any, idx: number) => (
+                            <option key={`${p.platform}-${idx}`} value={p.platform}>{p.platform || 'Platform'}</option>
+                          ))}
+                        </select>
+                        <ChevronRight className="w-5 h-5 text-gray-500 absolute right-4 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none transition-transform group-hover:text-indigo-400" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -801,11 +1511,11 @@ export function PreFunnelIntelligence() {
                             </div>
                           </div>
                           <div className="space-y-4">
-                            <p className="text-lg text-indigo-100/80 font-medium max-w-2xl leading-relaxed">{p.budgetRationale || p.reason}</p>
+                            <p className="text-lg text-indigo-100/80 font-medium max-w-2xl leading-relaxed text-right" dir="auto">{p.budgetRationale || p.reason}</p>
                             {p.marketCompetitiveBasis && (
-                              <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                              <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-right">
                                 <span className="text-[8px] font-black uppercase text-gray-500 block mb-1">Market Logic</span>
-                                <p className="text-xs text-indigo-200/60 italic">{p.marketCompetitiveBasis}</p>
+                                <p className="text-xs text-indigo-200/60 italic" dir="auto">{p.marketCompetitiveBasis}</p>
                               </div>
                             )}
                           </div>
@@ -963,6 +1673,208 @@ export function PreFunnelIntelligence() {
                 </div>
               </div>
             )}
+
+            {activeTab === 'content' && (
+              <div className="space-y-12 animate-in fade-in duration-500">
+                {!contentAnalysis ? (
+                  <div className="glass-panel p-16 rounded-[3rem] text-center bg-blue-500/5 border-blue-500/20">
+                    <div className="w-24 h-24 rounded-[2.5rem] bg-blue-500/20 flex items-center justify-center mx-auto mb-8 shadow-2xl border border-blue-500/30">
+                      <PenTool className="w-12 h-12 text-blue-400" />
+                    </div>
+                    <h2 className="text-4xl font-black text-white mb-6 tracking-tight uppercase">Content & Ad Copy Architect</h2>
+                    <p className="text-gray-400 text-lg max-w-2xl mx-auto mb-10 font-medium">
+                      Generate a complete, high-conversion ad copy suite for every phase of your funnel. 
+                      Precisely aligned with your business URL and market analysis.
+                    </p>
+                    <button
+                      onClick={handleGenerateContent}
+                      disabled={generatingContent}
+                      className="px-10 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-2xl transition-all shadow-2xl flex items-center justify-center gap-4 mx-auto disabled:opacity-50"
+                    >
+                      {generatingContent ? (
+                        <>
+                          <RefreshCw className="w-6 h-6 animate-spin" />
+                          Drafting Ad Copies...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-6 h-6" />
+                          Generate Full Ad Suite
+                        </>
+                      )}
+                    </button>
+                    <p className="mt-8 text-[10px] font-black tracking-widest text-gray-500 uppercase">
+                      Uses advanced persuasion frameworks (PAS/AIDA) for maximum conversion
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-12">
+                    <div className="flex items-center justify-between pb-8 border-b border-white/5">
+                      <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 rounded-3xl bg-blue-500/20 flex items-center justify-center shadow-lg border border-blue-500/30">
+                          <PenTool className="w-8 h-8 text-blue-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-3xl font-black text-white tracking-tight uppercase">Ad Content Suite</h2>
+                          <p className="text-gray-500 text-sm font-bold uppercase tracking-widest">Full-Funnel Creative Matrix</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleGenerateContent}
+                        className="px-6 py-3 bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-black rounded-xl transition-all flex items-center gap-2 border border-white/10"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Regenerate Suite
+                      </button>
+                    </div>
+
+                    {contentAnalysis.platforms?.map((plat: any, platIdx: number) => (
+                      <div key={platIdx} className="space-y-12">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-8 rounded-full bg-blue-500"></div>
+                          <h3 className="text-2xl font-black text-white uppercase tracking-tight">{plat.platform} Ecosystem</h3>
+                        </div>
+
+                        {plat.phases?.map((phase: any, phIdx: number) => (
+                          <div key={phIdx} className="space-y-6">
+                            <div className="flex items-center gap-4">
+                              <h4 className="text-sm font-black text-blue-400 uppercase tracking-[0.2em] bg-blue-500/10 px-4 py-1.5 rounded-full border border-blue-500/20">
+                                {phase.name}
+                              </h4>
+                              <div className="flex-1 h-px bg-gradient-to-r from-blue-500/20 to-transparent"></div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              {phase.adSets?.map((adSet: any, asIdx: number) => (
+                                <div key={asIdx} className="glass-panel p-8 rounded-[2.5rem] border-white/5 bg-white/2 hover:bg-white/5 transition-all group overflow-hidden">
+                                  <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 border border-indigo-500/30">
+                                        <Target className="w-5 h-5" />
+                                      </div>
+                                      <div>
+                                        <h5 className="text-lg font-black text-white leading-none">Ads #{asIdx + 1}</h5>
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Targeting Profile</p>
+                                      </div>
+                                    </div>
+                                    <div className="text-[10px] font-black text-indigo-400/80 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+                                      {adSet.targetingProfile}
+                                    </div>
+                                  </div>
+
+                                  {/* AD SET TARGETING & DETAILS */}
+                                  <div className="mb-8 p-5 rounded-3xl bg-indigo-500/5 border border-indigo-500/10 relative overflow-hidden">
+                                     <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 blur-2xl pointer-events-none"></div>
+                                     <h6 className="text-[10px] font-black tracking-widest text-indigo-400 uppercase mb-4 flex items-center gap-2">
+                                       <Target className="w-3.5 h-3.5" />
+                                       AD SET TARGETING & DETAILS
+                                     </h6>
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right" dir="auto">
+                                       <div className="space-y-1">
+                                         <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest block text-left">Demographics & Locations</span>
+                                         <p className="text-[11px] text-gray-300 font-bold">
+                                           {adSet.targetingDetails?.demographics || '18-35+'} • {adSet.targetingDetails?.locations || 'Cairo, Giza, Alex'}
+                                         </p>
+                                       </div>
+                                       <div className="space-y-1">
+                                         <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest block text-left">Targeting Strategy</span>
+                                         <p className="text-[11px] text-indigo-300/80 font-bold italic">
+                                           {adSet.targetingDetails?.strategy || 'Open/Broad Algorithm Testing'}
+                                         </p>
+                                       </div>
+                                       {adSet.targetingDetails?.interests?.length > 0 && (
+                                         <div className="md:col-span-2 pt-2 border-t border-white/5">
+                                           <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest block mb-2 text-left">Detailed Interests</span>
+                                           <div className="flex flex-wrap gap-2 justify-end">
+                                             {adSet.targetingDetails.interests.map((interest: string, i: number) => (
+                                               <span key={i} className="text-[9px] bg-white/5 text-gray-400 px-2 py-1 rounded-lg border border-white/5">
+                                                 {interest}
+                                               </span>
+                                             ))}
+                                           </div>
+                                         </div>
+                                       )}
+                                     </div>
+                                  </div>
+
+                                  <div className="space-y-6">
+                                      {adSet.ads?.map((ad: any, adIdx: number) => {
+                                        const adId = `${platIdx}-${phIdx}-${asIdx}-${adIdx}`;
+                                        return (
+                                          <div key={adIdx} className="p-6 rounded-3xl bg-[#0B0F19]/60 border border-white/10 group/ad hover:border-blue-500/40 transition-all">
+                                            <div className="flex items-center justify-between mb-4">
+                                              <div className="flex items-center gap-2">
+                                                <span className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-black shadow-[0_0_10px_rgba(239,68,68,0.4)]">
+                                                  {adIdx + 1}
+                                                </span>
+                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Variation - {ad.angle}</span>
+                                              </div>
+                                              <button 
+                                                onClick={() => {
+                                                  const text = `Headline: ${ad.headline}\n\n${ad.primaryText}\n\nCTA: ${ad.cta}`;
+                                                  navigator.clipboard.writeText(text).then(() => {
+                                                    setCopiedAdId(adId);
+                                                    setTimeout(() => setCopiedAdId(null), 2000);
+                                                  }).catch(err => {
+                                                    console.error('Failed to copy: ', err);
+                                                  });
+                                                }}
+                                                className={cn(
+                                                  "p-2 rounded-lg transition-all flex items-center gap-2",
+                                                  copiedAdId === adId 
+                                                    ? "bg-emerald-500/20 text-emerald-400" 
+                                                    : "bg-white/5 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10"
+                                                )}
+                                              >
+                                                {copiedAdId === adId ? (
+                                                  <>
+                                                    <span className="text-[8px] font-black uppercase">Copied!</span>
+                                                    <Check className="w-3.5 h-3.5" />
+                                                  </>
+                                                ) : (
+                                                  <Copy className="w-3.5 h-3.5" />
+                                                )}
+                                              </button>
+                                            </div>
+
+                                            <div className="space-y-4 text-right" dir="auto">
+                                              <div>
+                                                <h6 className="text-[9px] uppercase tracking-widest text-gray-600 font-black mb-1 text-left">Winning Headline</h6>
+                                                <p className="text-lg font-black text-white leading-tight">{ad.headline}</p>
+                                              </div>
+                                              
+                                              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group-hover/ad:border-blue-500/20 transition-all">
+                                                <h6 className="text-[9px] uppercase tracking-widest text-gray-600 font-black mb-2 text-left">Primary Body Copy</h6>
+                                                <p className="text-[13px] text-gray-300 leading-relaxed whitespace-pre-wrap font-medium">
+                                                  {ad.primaryText}
+                                                </p>
+                                              </div>
+
+                                              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                                                <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full uppercase">
+                                                  CTA: {ad.cta}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                                  <span className="text-[8px] text-gray-600 font-black uppercase">Optimized for Conversion</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : !loading && (
@@ -993,14 +1905,16 @@ export function PreFunnelIntelligence() {
 
 function InfoItem({ label, value }: { label: string, value: string }) {
   return (
-    <div>
+    <div className="text-right">
       <label className="text-[10px] uppercase tracking-widest text-gray-500 font-black block mb-1">{label}</label>
-      <p className="text-gray-200 font-bold text-lg leading-tight">{value}</p>
+      <p className="text-gray-200 font-bold text-lg leading-tight" dir="auto">{value}</p>
     </div>
   );
 }
 
 function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: string }) {
+  if (!data) return null;
+
   const colorClasses: any = {
     blue: "border-blue-500/20 bg-blue-500/5 text-blue-400",
     purple: "border-purple-500/20 bg-purple-500/5 text-purple-400",
@@ -1024,7 +1938,7 @@ function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: 
             </span>
           </div>
           {data.rationale && (
-            <p className="text-[10px] text-gray-500 font-medium italic mt-2">
+            <p className="text-[10px] text-gray-500 font-medium italic mt-2 text-right" dir="auto">
               Rationale: {data.rationale}
             </p>
           )}
@@ -1032,14 +1946,18 @@ function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: 
         <div className="text-right">
           <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Campaign Structure</div>
           <div className="flex items-center gap-4 text-white">
-            <div className="text-center">
-              <div className="text-xl font-black">{data.adSetCount}</div>
-              <div className="text-[8px] uppercase font-black text-gray-500">Ad Sets</div>
+            <div className="text-center group">
+              <div className="relative inline-block mb-1">
+                <div className="w-12 h-12 rounded-full border-4 border-red-500/30 flex items-center justify-center text-2xl font-black text-white bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse group-hover:animate-none group-hover:scale-110 transition-all">
+                  {data.adSetCount}
+                </div>
+              </div>
+              <div className="text-[9px] font-black text-white/80 uppercase tracking-tighter leading-tight max-w-[80px]">عدد ال ad sets داخل الحمله</div>
             </div>
-            <div className="w-px h-8 bg-white/10"></div>
+            <div className="w-px h-12 bg-white/10 mx-2"></div>
             <div className="text-center">
-              <div className="text-xl font-black">{data.adsPerSet}</div>
-              <div className="text-[8px] uppercase font-black text-gray-500">Ads/Set</div>
+              <div className="text-2xl font-black text-white mb-1">{data.adsPerSet}</div>
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter leading-tight max-w-[80px]">عدد ال ads داخل كل ad set</div>
             </div>
           </div>
         </div>
@@ -1048,20 +1966,36 @@ function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <div className="space-y-8">
           <div className="space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Core Phase Strategy</h4>
-            <p className="text-lg text-white font-bold leading-snug text-right">{data.strategy || data.objective || 'Generating tactical foundation...'}</p>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Core Phase Strategy</h4>
+            <p className="text-lg text-white font-bold leading-snug text-right" dir="auto">{data.strategy || data.objective || 'Generating tactical foundation...'}</p>
           </div>
           
-          <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4 text-left">Ad Set Targeting & Details</h4>
-            <p className="text-sm text-gray-300 leading-relaxed text-right italic">{data.adSetDetails || data.targeting || 'Identifying prime audience segments...'}</p>
+          <div className="space-y-4">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4 text-right">Ad Set Targeting & Details</h4>
+            {data.adSetProfiles?.length > 0 ? (
+              <div className="space-y-3">
+                {data.adSetProfiles.map((profile: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-3xl bg-indigo-500/5 border border-indigo-500/10 text-right">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                       <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">Targeting Segment #{idx + 1}</span>
+                       <h5 className="text-[11px] font-black text-gray-200">{profile.name}</h5>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed italic" dir="auto">{profile.detail}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
+                <p className="text-sm text-gray-300 leading-relaxed text-right italic" dir="auto">{data.adSetDetails || data.targeting || 'Identifying prime audience segments...'}</p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Creative Breakdown</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Creative Breakdown</h4>
             <div className="flex flex-wrap gap-2 justify-end text-right">
               {data.creativeBreakdown ? data.creativeBreakdown.map((crt: string, i: number) => (
-                <span key={i} className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300">
+                <span key={i} className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300" dir="auto">
                   {crt}
                 </span>
               )) : (
@@ -1072,18 +2006,91 @@ function FunnelPhase({ phase, data, color }: { phase: string, data: any, color: 
         </div>
 
         <div className="space-y-8">
-          <div className="p-8 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 text-left">Winning Ad Copy (Localized)</h4>
-            <div className="text-sm text-indigo-100 leading-relaxed font-bold bg-[#0B0F19]/50 p-6 rounded-2xl text-right">
-              {data.contentCopy || data.creativeType || 'Drafting high-conversion copy...'}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="p-8 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 text-right flex items-center justify-end gap-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                Meta Ads Manager Technical Setup
+              </h4>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Campaign Objective</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaObjective || 'Sales'}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Budget Type</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaBudgetType || 'ABO'}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Optimization Goal</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaOptimizationGoal || 'Conversions'}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Recommended Placements</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaPlacements || 'Advantage+'}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Creative Format</span>
+                  <span className="text-xs font-black text-emerald-400">{data.creativeFormat || 'Single Item'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 text-right flex items-center justify-end gap-2">
+                <Users className="w-3.5 h-3.5" />
+                Meta Audience Controls
+              </h4>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Locations</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaLocations || 'Egypt'}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Age Range</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaAgeRange || '18-65+'}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Gender</span>
+                  <span className="text-xs font-black text-indigo-400">{data.metaGender || 'All'}</span>
+                </div>
+                <div className="p-3 bg-[#0B0F19]/40 rounded-xl border border-white/5 text-right">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mb-1">Exclusions</div>
+                  <div className="text-[10px] font-black text-red-400">{data.metaExclusions || 'Previous Purchasers (30 Days)'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 text-right flex items-center justify-end gap-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                Winning Ad Copy & Angles
+              </h4>
+              <div className="space-y-4">
+                {data.adAngles && data.adAngles.length > 0 && (
+                  <div className="grid grid-cols-1 gap-3 mb-4">
+                     {data.adAngles.map((angle: string, i: number) => (
+                       <div key={i} className="flex items-center gap-3 p-3 bg-white/5 border border-white/5 rounded-xl text-right justify-end group/angle hover:border-indigo-500/30 transition-all">
+                          <span className="text-[10px] font-bold text-gray-300 italic" dir="auto">"{angle}"</span>
+                          <div className="w-6 h-6 rounded-lg bg-indigo-500/20 flex items-center justify-center text-[9px] font-black text-indigo-400 shrink-0">
+                            Angle {i + 1}
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+                )}
+                <div className="text-sm text-indigo-100 leading-relaxed font-bold bg-[#0B0F19]/50 p-6 rounded-2xl text-right" dir="auto">
+                  {data.contentCopy || data.creativeType || 'Drafting high-conversion copy...'}
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">High-Retention Hooks</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">High-Retention Hooks</h4>
             {data.hooks?.map((hook: string, i: number) => (
               <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-indigo-500/30 transition-all text-right justify-end">
-                <span className="text-sm font-bold text-white italic">"{hook}"</span>
+                <span className="text-sm font-bold text-white italic" dir="auto">"{hook}"</span>
                 <div className="w-8 h-8 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-black text-xs shrink-0 order-first lg:order-last">
                   #{i+1}
                 </div>

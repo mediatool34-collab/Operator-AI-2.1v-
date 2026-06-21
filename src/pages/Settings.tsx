@@ -109,7 +109,7 @@ export function Settings() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Platform Linkage (Multi-Account Scaling)</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Platform Linkage (Multi-Account Scaling)</h1>
       </div>
 
       <div className="glass-panel rounded-2xl overflow-hidden">
@@ -119,7 +119,7 @@ export function Settings() {
             {user?.photoURL ? (
               <img src={user.photoURL} alt="Profile" className="w-16 h-16 rounded-full border-2 border-white/10" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 text-xl font-bold">
+              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground text-xl font-bold">
                 {user?.email?.[0].toUpperCase()}
               </div>
             )}
@@ -135,35 +135,68 @@ export function Settings() {
           
           <div className="space-y-4">
             {/* Meta Ads */}
-            <div className="flex items-center justify-between p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">f</div>
-                <div>
-                  <div className="font-medium text-white">Meta Ads</div>
-                  <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
-                    {metaConnected ? (
-                      <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
-                    ) : (
-                      <><XCircle className="w-3.5 h-3.5 text-gray-500" /> Not linked</>
-                    )}
+            <div className="flex flex-col gap-3 p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">f</div>
+                  <div>
+                    <div className="font-medium text-white">Meta Ads</div>
+                    <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
+                      {metaConnected ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
+                      ) : (
+                        <><XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Not linked</>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {metaConnected ? (
+                  <button onClick={() => handleDisconnect('meta')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
+                    Disconnect
+                  </button>
+                ) : (
+                  <button onClick={() => handleConnect('meta')} className="px-4 py-2 text-sm font-medium bg-[#1877F2] text-white hover:bg-[#1877F2]/90 rounded-lg shadow-[0_0_10px_rgba(24,119,242,0.3)] transition-all duration-200">
+                    Connect
+                  </button>
+                )}
               </div>
-              {metaConnected ? (
-                <button onClick={() => handleDisconnect('meta')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
-                  Disconnect
-                </button>
-              ) : (
-                <button onClick={() => handleConnect('meta')} className="px-4 py-2 text-sm font-medium bg-[#1877F2] text-white hover:bg-[#1877F2]/90 rounded-lg shadow-[0_0_10px_rgba(24,119,242,0.3)] transition-all duration-200">
-                  Connect
-                </button>
+              {!metaConnected && (
+                <div className="flex gap-2 items-center w-full mt-2 border-t border-white/5 pt-3">
+                  <input
+                    type="password"
+                    placeholder="Or paste Access Token manually..."
+                    className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#1877F2]/50"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = e.currentTarget.value.trim();
+                        if (val) {
+                          localStorage.setItem('meta_token', val);
+                          setMetaConnected(true);
+                        }
+                      }
+                    }}
+                  />
+                  <button 
+                    className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 rounded-lg text-white/70 transition-colors"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      const val = input.value.trim();
+                      if (val) {
+                        localStorage.setItem('meta_token', val);
+                        setMetaConnected(true);
+                      }
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
               )}
             </div>
 
             {/* Google Ads */}
             <div className="flex items-center justify-between p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center font-bold text-xl text-gray-900 overflow-hidden">
+                <div className="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center font-bold text-xl text-foreground overflow-hidden">
                   <svg viewBox="0 0 24 24" className="w-6 h-6">
                     <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.273 0 3.191 2.727 1.136 6.709l4.13 3.056Z" />
                     <path fill="#FBBC05" d="M1.136 6.71c-.345 1.054-.536 2.181-.536 3.354 0 1.173.191 2.3.545 3.345l4.137-3.219-4.146-3.48Z" />

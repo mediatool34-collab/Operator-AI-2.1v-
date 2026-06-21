@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Zap, BrainCircuit, RefreshCw, ToggleLeft, ToggleRight, Wrench } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Zap, BrainCircuit, RefreshCw, ToggleLeft, ToggleRight, Wrench, Users, Settings, Image, MousePointerClick } from 'lucide-react';
 import { cn, safeJson } from '../lib/utils';
 
 export function SystemIntelligence() {
@@ -57,7 +57,7 @@ export function SystemIntelligence() {
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">System Error</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">System Error</h2>
           <p className="text-red-300 mb-6">{error}</p>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function SystemIntelligence() {
             </div>
             System Intelligence
           </h1>
-          <p className="text-gray-400 text-sm mt-1">Autonomous monitoring, fixing, and optimization engine.</p>
+          <p className="text-muted-foreground text-sm mt-1">Autonomous monitoring, fixing, and optimization engine.</p>
         </div>
         
         <div className="flex items-center gap-4 bg-[#111827]/50 px-4 py-2 rounded-xl border border-white/5 shadow-inner">
@@ -85,7 +85,7 @@ export function SystemIntelligence() {
           <button 
             onClick={toggleAutoOpt} 
             disabled={toggling}
-            className={cn("transition-colors", data?.autoOptimizationEnabled ? "text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]" : "text-gray-600")}
+            className={cn("transition-colors", data?.autoOptimizationEnabled ? "text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]" : "text-muted-foreground")}
           >
             {data?.autoOptimizationEnabled ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
           </button>
@@ -104,7 +104,7 @@ export function SystemIntelligence() {
           </div>
           <div className="p-4 flex-1 overflow-y-auto max-h-96 space-y-6 custom-scrollbar">
             <div>
-              <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Active Issues</h3>
+              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Active Issues</h3>
               {data?.activeIssues.length === 0 ? (
                 <p className="text-sm text-gray-500 italic bg-[#111827]/30 p-3 rounded-lg border border-white/5">No active issues detected.</p>
               ) : (
@@ -163,24 +163,74 @@ export function SystemIntelligence() {
                     <div className={cn(
                       "p-2 rounded-lg flex-shrink-0 border",
                       action.action === 'SCALE' ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                      action.action === 'REDUCE' ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+                      action.action === 'REDUCE' || action.action === 'SQUEEZE' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                       action.action === 'PAUSE' ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                      "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                      action.action === 'HOLD' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                      "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
                     )}>
                       <Activity className="w-4 h-4" />
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className={cn(
                           "text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider border",
                           action.action === 'SCALE' ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                          action.action === 'REDUCE' ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+                          action.action === 'REDUCE' || action.action === 'SQUEEZE' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                           action.action === 'PAUSE' ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                          "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                          action.action === 'HOLD' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                          "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
                         )}>{action.action}</span>
                         <span className="text-sm font-semibold text-white">{action.campaignName}</span>
                       </div>
-                      <p className="text-sm text-gray-400 mt-1.5">{action.reason}</p>
+                      <p className="text-sm text-gray-400 mt-1.5 leading-relaxed">{action.reason}</p>
+                      
+                      {/* 4-Step Media Buyer Optimization Checklist */}
+                      {(action.audienceCheck || action.adsetCheck || action.creativeCheck || action.ctaCheck) && (
+                        <div className="mt-3 pt-3 border-t border-white/5 space-y-2 text-xs" dir="rtl">
+                          <p className="font-bold text-[10px] text-indigo-400 uppercase tracking-wider text-right mb-2">
+                            🔍 تفاصيل شاشات التحسين الأربعة (Optimization Audit):
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-right">
+                            {action.audienceCheck && (
+                              <div className="bg-[#0B0F19]/40 p-2 rounded-lg border border-white/5 flex items-start gap-2">
+                                <Users className="w-3.5 h-3.5 text-blue-400 mt-0.5 flex-shrink-0" />
+                                <div className="leading-tight">
+                                  <span className="font-bold text-muted-foreground text-[11px] block">1. فحص الجمهور:</span>
+                                  <span className="text-gray-400 text-[11px]">{action.audienceCheck}</span>
+                                </div>
+                              </div>
+                            )}
+                            {action.adsetCheck && (
+                              <div className="bg-[#0B0F19]/40 p-2 rounded-lg border border-white/5 flex items-start gap-2">
+                                <Settings className="w-3.5 h-3.5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                                <div className="leading-tight">
+                                  <span className="font-bold text-gray-300 text-[11px] block">2. إعدادات الـ ad set:</span>
+                                  <span className="text-gray-400 text-[11px]">{action.adsetCheck}</span>
+                                </div>
+                              </div>
+                            )}
+                            {action.creativeCheck && (
+                              <div className="bg-[#0B0F19]/40 p-2 rounded-lg border border-white/5 flex items-start gap-2">
+                                <Image className="w-3.5 h-3.5 text-green-400 mt-0.5 flex-shrink-0" />
+                                <div className="leading-tight">
+                                  <span className="font-bold text-gray-300 text-[11px] block">3. ملاءمة الكرياتيف:</span>
+                                  <span className="text-gray-400 text-[11px]">{action.creativeCheck}</span>
+                                </div>
+                              </div>
+                            )}
+                            {action.ctaCheck && (
+                              <div className="bg-[#0B0F19]/40 p-2 rounded-lg border border-white/5 flex items-start gap-2">
+                                <MousePointerClick className="w-3.5 h-3.5 text-pink-400 mt-0.5 flex-shrink-0" />
+                                <div className="leading-tight">
+                                  <span className="font-bold text-gray-300 text-[11px] block">4. قوة الـ CTA والاختبار:</span>
+                                  <span className="text-gray-400 text-[11px]">{action.ctaCheck}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <p className="text-[10px] text-gray-500 mt-1.5 font-mono">{new Date(action.timestamp).toLocaleString()}</p>
                     </div>
                   </div>

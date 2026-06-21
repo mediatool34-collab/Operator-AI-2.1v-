@@ -2,5 +2,5 @@
   "name": "Operator AI (2.0v)",
   "description": "Autonomous multi-tenant SaaS platform for advertising intelligence across Meta, Google Ads, and TikTok.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

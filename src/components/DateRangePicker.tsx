@@ -37,7 +37,7 @@ export function DateRangePicker() {
     <div className="relative" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-[#111827] border border-white/10 px-4 py-1.5 rounded-lg text-sm font-medium text-gray-200 hover:bg-white/5 transition-colors"
+        className="flex items-center gap-2 bg-[#111827] border border-white/10 px-4 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-white/5 transition-colors"
       >
         <Calendar className="w-4 h-4 text-blue-400" />
         {currentLabel}
@@ -46,7 +46,7 @@ export function DateRangePicker() {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-[#0B0F19] border border-white/10 rounded-xl shadow-xl z-50 py-2 backdrop-blur-md">
-          <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+          <div className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
             Date range presets
           </div>
           <div className="max-h-64 overflow-y-auto custom-scrollbar">
@@ -58,7 +58,7 @@ export function DateRangePicker() {
                   setIsOpen(false);
                 }}
                 className={`w-full text-left px-4 py-2 text-sm hover:bg-white/5 transition-colors ${
-                  datePreset === preset.value ? 'bg-blue-500/10 text-blue-400 font-medium border-l-2 border-blue-500' : 'text-gray-300'
+                  datePreset === preset.value ? 'bg-blue-500/10 text-blue-400 font-medium border-l-2 border-blue-500' : 'text-muted-foreground'
                 }`}
               >
                 {preset.label}

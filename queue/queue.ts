@@ -14,7 +14,16 @@ export const REDIS_URL = sanitizeRedisUrl(rawRedisUrl);
 
 export const REDIS_OPTIONS: any = {
   maxRetriesPerRequest: null,
-  lazyConnect: true
+  lazyConnect: true,
+  enableReadyCheck: false, // Save requests
+  connectTimeout: 10000,
+  reconnectOnError: (err: any) => {
+    const targetError = "READONLY";
+    if (err.message.includes(targetError)) {
+      return true;
+    }
+    return false;
+  }
 };
 
 // Upstash/Managed Redis usually require TLS
@@ -37,17 +46,24 @@ if (isRedisAvailable) {
     connection,
     defaultJobOptions: {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: true,
-      removeOnFail: { age: 24 * 3600, count: 1000 }
+      backoff: { type: 'exponential', delay: 10000 }, // Increase backoff delay
+      removeOnComplete: true, // Delete successfully completed jobs immediately
+      removeOnFail: { age: 3600, count: 50 } // Keep failed jobs for only 1 hour and limited count
     },
   });
 
   queueInstance.on('error', (err: any) => {
+    if (err.message && (err.message.includes('max requests limit exceeded') || err.message.includes('Connection is closed'))) {
+       return;
+    }
     console.error('[Queue Instance] Error:', err.message);
   });
 
-  connection.on('error', (err) => {
+  connection.on('error', (err: any) => {
+    if (err.message && (err.message.includes('max requests limit exceeded') || err.message.includes('Connection is closed'))) {
+      if (err.message.includes('max requests limit exceeded')) connection?.disconnect();
+      return;
+    }
     console.error('[Queue] Redis Connection Error:', err.message);
   });
 }

@@ -192,8 +192,8 @@ export function ExecutionEngine() {
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <CheckSquare className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Not Connected</h2>
-          <p className="text-gray-400 mb-6">Connect your account to view execution tasks.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Not Connected</h2>
+          <p className="text-muted-foreground mb-6">Connect your account to view execution tasks.</p>
         </div>
       </div>
     );
@@ -223,7 +223,7 @@ export function ExecutionEngine() {
             
             {tasks.length === 0 ? (
               <div className="p-12 text-center">
-                <CheckSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <CheckSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-white mb-1">No Tasks Generated</h3>
                 <p className="text-gray-400">The analysis engine didn't find any immediate actions required for your campaigns.</p>
               </div>
@@ -239,7 +239,7 @@ export function ExecutionEngine() {
                   >
                     <button 
                       onClick={() => toggleTaskStatus(task.id)}
-                      className="mt-1 flex-shrink-0 text-gray-500 hover:text-blue-400 transition-colors"
+                      className="mt-1 flex-shrink-0 text-muted-foreground hover:text-blue-400 transition-colors"
                     >
                       {task.status === 'DONE' ? (
                         <CheckCircle2 className="w-6 h-6 text-green-400" />
@@ -250,7 +250,7 @@ export function ExecutionEngine() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1.5">
                         <h3 className={cn(
-                          "text-base font-medium text-gray-200",
+                          "text-base font-medium text-foreground",
                           task.status === 'DONE' && "line-through text-gray-500"
                         )}>
                           {task.title}

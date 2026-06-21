@@ -3,13 +3,15 @@ import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/auth';
 import { signInWithGoogle } from '../lib/firebase';
-import { AlertCircle, DollarSign, MousePointerClick, Users, Target, Activity, Zap, TrendingUp, PauseCircle, X, CheckCircle2, ChevronRight, BrainCircuit, ActivitySquare } from 'lucide-react';
+import { AlertCircle, DollarSign, MousePointerClick, Users, Target, Activity, Zap, TrendingUp, PauseCircle, X, CheckCircle2, ChevronRight, BrainCircuit, ActivitySquare, Shield } from 'lucide-react';
 import { useFilters } from '../lib/FilterContext';
 import { CampaignTree } from '../components/CampaignTree';
 import { InsightPanel } from '../components/InsightPanel';
+import { AccountAuditPanel } from '../components/AccountAuditPanel';
 import { CreativeViewer } from '../components/CreativeViewer';
 import { PerformanceChart } from '../components/PerformanceChart';
 import { ActivityFeed } from '../components/ActivityFeed';
+import { ROIForecast } from '../components/ROIForecast';
 import { cn, safeJson } from '../lib/utils';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useAiSettings } from '../hooks/useAiSettings';
@@ -397,65 +399,33 @@ export function Dashboard() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4">
-        <div className="max-w-3xl w-full">
+        <div className="max-w-2xl w-full">
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-panel p-12 rounded-[2.5rem] border border-brand-accent/20 shadow-[0_0_50px_rgba(59,130,246,0.15)] relative overflow-hidden"
+            className="glass-panel p-8 md:p-12"
           >
-            {/* Background Glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-accent/20 blur-[100px] pointer-events-none" />
+            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Target className="w-8 h-8 text-primary" />
+            </div>
             
-            <div className="relative z-10">
-              <div className="w-20 h-20 bg-gradient-to-br from-brand-accent/20 to-indigo-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-brand-accent/30 shadow-[0_0_30px_rgba(59,130,246,0.3)]">
-                <Target className="w-10 h-10 text-brand-accent animate-pulse" />
-              </div>
-              
-              <h1 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter leading-tight">
-                The Autonomous <br />
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-accent to-indigo-400">
-                  Ad Decision Engine
-                </span>
-              </h1>
-              
-              <p className="text-lg text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">
-                Operator AI is a professional multi-tenant platform for agencies and brand owners. 
-                Deploy cross-platform S.F.K protocols and let AI handle your media buying orchestration.
-              </p>
+            <h1 className="text-3xl font-bold text-foreground mb-4">
+              Welcome to MediaBuyer
+            </h1>
+            
+            <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+              A professional platform for managing cross-platform ad campaigns. Connect your accounts to analyze metrics and optimize budgets.
+            </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button
-                  onClick={signInWithGoogle}
-                  className="flex items-center gap-3 bg-brand-accent text-white px-8 py-4 rounded-2xl text-base font-bold hover:bg-brand-accent/90 transition-all shadow-[0_0_30px_rgba(59,130,246,0.4)] active:scale-95 group"
-                >
-                  <Activity className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                  Start Scaling Now
-                </button>
-                <div className="text-xs text-gray-500 font-medium uppercase tracking-widest px-4">
-                  Zero setup required • Any user welcome
-                </div>
-              </div>
-              
-              <div className="mt-12 pt-12 border-t border-white/5 grid grid-cols-3 gap-8">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white mb-1">99.9%</div>
-                  <div className="text-[10px] text-gray-600 uppercase font-black tracking-widest">Uptime</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white mb-1">Meta v21</div>
-                  <div className="text-[10px] text-gray-600 uppercase font-black tracking-widest">API Ready</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white mb-1">Zero-Trust</div>
-                  <div className="text-[10px] text-gray-600 uppercase font-black tracking-widest">Security</div>
-                </div>
-              </div>
+            <div className="flex flex-col items-center gap-4">
+              <button
+                onClick={signInWithGoogle}
+                className="glass-button"
+              >
+                Sign In with Google
+              </button>
             </div>
           </motion.div>
-          
-          <p className="mt-8 text-sm text-gray-600 font-medium">
-            Connect your Meta, Google, or TikTok accounts to begin your autonomous journey.
-          </p>
         </div>
       </div>
     );
@@ -473,27 +443,23 @@ export function Dashboard() {
   if (!getToken()) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4">
-        <div className="glass-panel p-10 rounded-[2rem] max-w-lg w-full border border-yellow-500/10 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          
-          <div className="relative z-10">
-            <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-yellow-500/20">
-              <AlertCircle className="w-8 h-8 text-yellow-500" />
-            </div>
-            
-            <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">No Active Linkage Detected</h2>
-            <p className="text-gray-400 mb-8 leading-relaxed">
-              Operator AI requires a secure connection to your {platform.charAt(0).toUpperCase() + platform.slice(1)} account to synthesize data and deploy S.F.K protocols.
-            </p>
-            
-            <NavLink 
-              to="/settings"
-              className="inline-flex items-center gap-3 bg-brand-accent text-white px-8 py-3.5 rounded-xl font-bold hover:bg-brand-accent/90 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] active:scale-95"
-            >
-              <Target className="w-5 h-5" />
-              Link Your Ad Account
-            </NavLink>
+        <div className="glass-panel p-8 md:p-12 max-w-lg w-full">
+          <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8 text-muted-foreground" />
           </div>
+          
+          <h2 className="text-2xl font-bold text-foreground mb-3 text-center">No Account Connected</h2>
+          <p className="text-muted-foreground mb-8 text-center">
+            You need to connect your {platform.charAt(0).toUpperCase() + platform.slice(1)} account to view metrics and analyze campaigns.
+          </p>
+          
+          <NavLink 
+            to="/settings"
+            className="glass-button w-full sm:w-auto inline-flex items-center justify-center gap-2"
+          >
+            <Target className="w-4 h-4" />
+            Connect Account
+          </NavLink>
         </div>
       </div>
     );
@@ -701,7 +667,7 @@ export function Dashboard() {
         <div className="lg:col-span-8 h-full flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
           
           {/* Performance Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
             <div className="glass-panel p-6 rounded-2xl">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Spend Trend</h3>
@@ -728,6 +694,8 @@ export function Dashboard() {
                 <PerformanceChart data={chartData} dataKey="roas" color="#818cf8" />
               </div>
             </div>
+            {/* ROI Forecast */}
+            <ROIForecast data={chartData} spendTrend={spendTrend} />
           </div>
 
           {/* Auto Optimization Panel */}
@@ -759,7 +727,7 @@ export function Dashboard() {
                 <div className="flex gap-4 text-sm bg-[#0B0F19]/50 px-4 py-2 rounded-xl border border-white/5">
                   <div className="flex items-center gap-1.5">
                     <TrendingUp className="w-4 h-4 text-green-400" />
-                    <span className="font-medium text-gray-200">{optStats.scaled}</span>
+                    <span className="font-medium text-foreground">{optStats.scaled}</span>
                   </div>
                   <div className="w-px h-4 bg-white/10"></div>
                   <div className="flex items-center gap-1.5">
@@ -843,37 +811,38 @@ export function Dashboard() {
                   Select a campaign, ad set, or ad from the tree to view its specific performance metrics, AI analysis, and creative assets.
                 </p>
               </div>
-              <div className="flex-1">
-                <InsightPanel 
-                  analysis={globalAnalysis} 
-                  loading={analyzingGlobal} 
-                  onFix={async () => {
-                    // Bulk fix simulation
-                    await new Promise(r => setTimeout(r, 2000));
-                    const actionLog = {
-                      id: Math.random().toString(36).substr(2, 9),
-                      timestamp: new Date().toISOString(),
-                      campaignName: 'Bulk Optimizer',
-                      action: 'OPTIMIZE_ALL',
-                      reason: 'Consolidated performance issues resolved.',
-                      details: `Applied 4 budget adjustments and paused 2 low-performing creative testers.`,
-                      status: 'SUCCESS',
-                      isBulk: true
-                    };
-                    const existingLogs = JSON.parse(localStorage.getItem(`opt_logs_${selectedAccountId}`) || '[]');
-                    const updatedLogs = [actionLog, ...existingLogs.slice(0, 50)];
-                    localStorage.setItem(`opt_logs_${selectedAccountId}`, JSON.stringify(updatedLogs));
-                    setLogs(updatedLogs.slice(0, 10));
-                    setActiveReport(actionLog);
-                  }}
-                  onViewDetails={() => {
-                     const existingLogs = JSON.parse(localStorage.getItem(`opt_logs_${selectedAccountId}`) || '[]');
-                     const lastBulk = existingLogs.find((l: any) => l.isBulk);
-                     if (lastBulk) setActiveReport(lastBulk);
-                     else setActiveReport({ campaignName: 'Bulk Optimizer', analysis: globalAnalysis, status: 'INFO', isBulk: true });
-                  }}
-                />
-              </div>
+              <AccountAuditPanel 
+                campaigns={campaigns}
+                insights={insights}
+                globalAnalysis={globalAnalysis}
+                isExecuting={analyzingGlobal} // Reuse the state just for loading visual if wanted
+                onExecutePlan={async () => {
+                  setAnalyzingGlobal(true);
+                  // Bulk fix simulation
+                  await new Promise(r => setTimeout(r, 2000));
+                  const actionLog = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    timestamp: new Date().toISOString(),
+                    campaignName: '1-Click Optimization Engine',
+                    action: 'BULK_EXECUTION',
+                    reason: 'Applied bulk logic: Scaled Top 20% campaigns, Paused Bottom 15%.',
+                    details: `Automated playbook executed across ${campaigns.length} campaigns.`,
+                    status: 'SUCCESS',
+                    isBulk: true,
+                    diagnostics: {
+                       scaled: winningCampaigns.map((c: any) => c.name),
+                       paused: failingCampaigns.map((c: any) => c.name),
+                       netProfitReminder: "الصورة الكاملة: ROAS is just a proxy. True profitability depends on your Product Cost (COGS), Shipping, and operational margins. Confirm your net margin in the settings to ensure autonomous scaling is truly profitable."
+                    }
+                  };
+                  const existingLogs = JSON.parse(localStorage.getItem(`opt_logs_${selectedAccountId}`) || '[]');
+                  const updatedLogs = [actionLog, ...existingLogs.slice(0, 50)];
+                  localStorage.setItem(`opt_logs_${selectedAccountId}`, JSON.stringify(updatedLogs));
+                  setLogs((prev: any) => updatedLogs.slice(0, 10));
+                  setActiveReport(actionLog);
+                  setAnalyzingGlobal(false);
+                }}
+              />
             </div>
           )}
         </div>
@@ -927,6 +896,41 @@ export function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {activeReport.isBulk && activeReport.diagnostics && (
+                <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+                   <div className="grid grid-cols-2 gap-4">
+                     <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-2 opacity-5"><TrendingUp className="w-12 h-12 text-green-400" /></div>
+                        <h4 className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-2">Scaled Campaigns</h4>
+                        {activeReport.diagnostics.scaled?.length > 0 ? (
+                          <ul className="text-sm text-muted-foreground space-y-1 relative z-10">
+                            {activeReport.diagnostics.scaled.slice(0, 3).map((s: string, idx: number) => <li key={idx} className="truncate">• {s}</li>)}
+                            {activeReport.diagnostics.scaled.length > 3 && <li className="text-xs text-green-500/70 italic">+{activeReport.diagnostics.scaled.length - 3} more</li>}
+                          </ul>
+                        ) : <span className="text-xs text-gray-500">None detected.</span>}
+                     </div>
+                     <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-2 opacity-5"><Shield className="w-12 h-12 text-orange-400" /></div>
+                        <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2">Stopped/Restricted</h4>
+                        {activeReport.diagnostics.paused?.length > 0 ? (
+                          <ul className="text-sm text-gray-300 space-y-1 relative z-10">
+                            {activeReport.diagnostics.paused.slice(0, 3).map((p: string, idx: number) => <li key={idx} className="truncate">• {p}</li>)}
+                            {activeReport.diagnostics.paused.length > 3 && <li className="text-xs text-orange-500/70 italic">+{activeReport.diagnostics.paused.length - 3} more</li>}
+                          </ul>
+                        ) : <span className="text-xs text-gray-500">None detected.</span>}
+                     </div>
+                   </div>
+                   
+                   <div className="p-5 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-start gap-4 mt-6 shadow-[0_0_20px_rgba(99,102,241,0.1)]">
+                     <div className="p-2 bg-indigo-500/20 rounded-lg shrink-0 mt-0.5"><ActivitySquare className="w-5 h-5 text-indigo-400" /></div>
+                     <div>
+                       <h4 className="text-sm font-bold text-indigo-400 mb-1">System Warning: The Full Picture (الصورة الكاملة)</h4>
+                       <p className="text-sm text-gray-300 leading-relaxed font-medium">{activeReport.diagnostics.netProfitReminder}</p>
+                     </div>
+                   </div>
+                </div>
+              )}
 
               {activeReport.changes && (
                 <div className="space-y-4">

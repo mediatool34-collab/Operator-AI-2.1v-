@@ -8,6 +8,14 @@ import { urlAnalysisProcessor } from './jobs/url_analysis.ts';
 if (isRedisAvailable) {
   const connection = new IORedis(REDIS_URL!, REDIS_OPTIONS);
 
+  connection.on('error', (err: any) => {
+    if (err.message && (err.message.includes('max requests limit exceeded') || err.message.includes('Connection is closed'))) {
+      if (err.message.includes('max requests limit exceeded')) connection?.disconnect();
+      return;
+    }
+    console.error('[Worker Redis] Connection Error:', err.message);
+  });
+
   const worker = new Worker('jobs', async (job) => {
     console.log(`[Worker] Started job ${job.id} of type ${job.name}`);
     
@@ -34,10 +42,14 @@ if (isRedisAvailable) {
     }
   }, {
     connection,
-    concurrency: 5,
+    concurrency: 1, // Minimize concurrent requests
+    lockDuration: 900000,   // 15 minutes lock
+    stalledInterval: 900000, // 15 minutes stalled check
+    maxStalledCount: 1,
+    drainDelay: 300000,     // WAIT 5 MINUTES when queue is empty (Aggressive Upstash optimization)
     limiter: {
-      max: 100,
-      duration: 10000
+      max: 5,
+      duration: 60000       // MAX 5 JOBS per minute
     }
   });
 
@@ -49,7 +61,15 @@ if (isRedisAvailable) {
     console.error(`[Worker] ❌ Job ${job?.id} (${job?.name}) failed:`, err.message);
   });
 
-  worker.on('error', (err) => {
+  let workerStopping = false;
+  worker.on('error', async (err) => {
+    if (err.message && (err.message.includes('max requests limit exceeded') || err.message.includes('Connection is closed'))) {
+      if (err.message.includes('max requests limit exceeded') && !workerStopping) {
+        workerStopping = true;
+        try { await worker.close(); } catch (e) {}
+      }
+      return;
+    }
     console.error(`[Worker] BullMQ Error:`, err.message);
   });
 

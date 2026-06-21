@@ -3,6 +3,7 @@ import { ActivitySquare, Globe, Link2, Search, Target, Users, LayoutDashboard, C
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { analyzeWithGemini } from '../lib/gemini';
+import { CRO_AND_AOV_INTELLIGENCE_DIRECTIVE } from '../lib/operatorDirectives';
 import { usePersistedState } from '../hooks/usePersistedState';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -121,6 +122,8 @@ export function SocialIntelligenceHub() {
       ${sharedFunnelContext ? `PRE-FUNNEL CONTEXT: ${JSON.stringify(sharedFunnelContext)}` : ''}
       ${metaConnected && metaCampaigns.length > 0 ? `CONNECTED OWNER META ADS CONTEXT (Deep Analytics Mode - Use this real performance data to suggest what to tweak, pause, or run): ${JSON.stringify(metaCampaigns)}` : 'MODE: PUBLIC COMPETITOR MODE (Scraping only, no private insights available)'}
 
+      ${CRO_AND_AOV_INTELLIGENCE_DIRECTIVE}
+
       INSTRUCTIONS (CRITICAL - FOLLOW EXACTLY):
       1. FIRST, automatically detect: platform type (TikTok, Instagram, YouTube, LinkedIn, X, Facebook, etc.), niche, business category, audience style.
       2. ADAPT YOUR STRATEGY BASED ON THE DETECTED PLATFORM:
@@ -238,7 +241,7 @@ export function SocialIntelligenceHub() {
         "flex items-center gap-2 px-6 py-4 font-bold text-sm transition-all whitespace-nowrap border-b-2",
         activeTab === id 
           ? "border-emerald-500 text-emerald-400 bg-emerald-500/10" 
-          : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5"
+          : "border-transparent text-muted-foreground hover:text-muted-foreground hover:bg-white/5"
       )}
     >
       {icon}
@@ -247,7 +250,7 @@ export function SocialIntelligenceHub() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-white p-8">
+    <div className="min-h-screen bg-[#0B0F19] text-foreground p-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
         {/* Header */}
         <div>
@@ -255,7 +258,7 @@ export function SocialIntelligenceHub() {
             <ActivitySquare className="w-8 h-8 text-emerald-500" />
             Social Intelligence Hub
           </h1>
-          <p className="text-gray-400 m-2 mt-4 max-w-2xl bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-sm leading-relaxed">
+          <p className="text-muted-foreground m-2 mt-4 max-w-2xl bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-sm leading-relaxed">
             Full AI-powered social growth + competitive intelligence + media buying strategy engine.
           </p>
         </div>

@@ -17,8 +17,8 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
   if (!logs || logs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Activity className="w-10 h-10 text-gray-600 mb-3 opacity-20" />
-        <p className="text-gray-500 text-sm italic">No recent activity detected</p>
+        <Activity className="w-10 h-10 text-muted-foreground mb-3 opacity-20" />
+        <p className="text-muted-foreground text-sm italic">No recent activity detected</p>
       </div>
     );
   }
@@ -54,7 +54,7 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <h4 className="text-sm font-bold text-white truncate">{log.campaignName}</h4>
+                <h4 className="text-sm font-bold text-foreground truncate">{log.campaignName}</h4>
                 <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">
                   {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
                 </span>
@@ -65,10 +65,10 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
                   {log.action.replace('_', ' ')}
                 </span>
                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">•</span>
-                <span className="text-[10px] text-gray-400 font-medium truncate">{log.reason}</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">{log.reason}</span>
               </div>
               
-              <p className="text-xs text-gray-300 leading-relaxed bg-[#0B0F19]/50 p-2 rounded-lg border border-white/5">
+              <p className="text-xs text-muted-foreground leading-relaxed bg-[#0B0F19]/50 p-2 rounded-lg border border-white/5">
                 {log.details}
               </p>
             </div>
