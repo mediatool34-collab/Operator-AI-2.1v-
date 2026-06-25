@@ -325,7 +325,7 @@ export function SocialIntelligenceHub() {
                       Back to Public Mode
                     </button>
                     {!metaConnected ? (
-                      <button onClick={() => window.location.href = '/api/meta/connect'} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all text-sm flex items-center gap-2">
+                      <button onClick={() => window.location.href = `/api/meta/connect?redirectUri=${encodeURIComponent(window.location.origin + '/api/meta/callback')}`} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all text-sm flex items-center gap-2">
                         <Link2 className="w-5 h-5" /> Connect Meta Ads
                       </button>
                     ) : (
@@ -404,7 +404,7 @@ export function SocialIntelligenceHub() {
                       <Link2 className="w-12 h-12 text-gray-500 mb-4" />
                       <p className="text-lg text-gray-300 font-bold mb-2">No platforms connected</p>
                       <p className="text-sm text-gray-500 mb-6">Connect Meta to enable live campaign control and real-time ROAS intelligence.</p>
-                      <button onClick={() => window.location.href = '/api/meta/connect'} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2">
+                      <button onClick={() => window.location.href = `/api/meta/connect?redirectUri=${encodeURIComponent(window.location.origin + '/api/meta/callback')}`} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2">
                         <Link2 className="w-5 h-5" /> Connect Meta Account
                       </button>
                     </div>

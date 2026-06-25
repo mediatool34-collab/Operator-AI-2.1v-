@@ -1280,10 +1280,39 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
     }
   });
 
+  // --- Helper to get absolute application URL robustly in AI Studio iframe ---
+  function getAppUrl(req: any) {
+    if (process.env.APP_URL) {
+      return process.env.APP_URL.replace(/\/$/, "");
+    }
+    const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
+    const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:3000";
+    const referer = req.headers["referer"] || "";
+    const origin = req.headers["origin"] || "";
+
+    let matchedUrl = "";
+    if (referer && referer.includes(".run.app")) {
+      try {
+        matchedUrl = new URL(referer).origin;
+      } catch (e) {}
+    } else if (origin && origin.includes(".run.app")) {
+      try {
+        matchedUrl = new URL(origin).origin;
+      } catch (e) {}
+    }
+
+    if (matchedUrl) {
+      return matchedUrl.replace(/\/$/, "");
+    }
+
+    const finalHost = String(host).split(",")[0].trim();
+    return `${proto}://${finalHost}`.replace(/\/$/, "");
+  }
+
   // --- OAuth Endpoints (HIGHER PRIORITY) ---
   app.get("/api/auth/connect/:platform", (req, res) => {
     const { platform } = req.params;
-    const { uid, json } = req.query;
+    const { uid, json, redirectUri: clientRedirectUri } = req.query;
     const isJson = json === "true";
 
     console.log(
@@ -1297,11 +1326,9 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
         : res.status(400).send(msg);
     }
 
-    const appUrl = (
-      process.env.APP_URL || `${req.protocol}://${req.get("host")}`
-    ).replace(/\/$/, "");
-    const redirectUri = `${appUrl}/api/auth/callback/${platform}`;
-    const state = Buffer.from(JSON.stringify({ uid, platform })).toString(
+    const appUrl = getAppUrl(req);
+    const redirectUri = (clientRedirectUri as string) || `${appUrl}/api/auth/callback/${platform}`;
+    const state = Buffer.from(JSON.stringify({ uid, platform, redirectUri })).toString(
       "base64",
     );
 
@@ -1564,15 +1591,13 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
         Buffer.from(state as string, "base64").toString("utf-8"),
       );
       const { uid } = decodedState;
+      const appUrl = getAppUrl(req);
+      const redirectUri = decodedState.redirectUri || `${appUrl}/api/auth/callback/${platform}`;
 
       if (platform === "meta") {
         const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
         const clientSecret =
           process.env.META_CLIENT_SECRET || process.env.META_APP_SECRET;
-        const appUrl = (
-          process.env.APP_URL || `${req.protocol}://${req.get("host")}`
-        ).replace(/\/$/, "");
-        const redirectUri = `${appUrl}/api/auth/callback/meta`;
 
         console.log("Meta OAuth Callback processing...", {
           platform,
@@ -1670,10 +1695,6 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
       if (platform === "google") {
         const clientId = process.env.GOOGLE_ADS_CLIENT_ID;
         const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET;
-        const appUrl = (
-          process.env.APP_URL || `${req.protocol}://${req.get("host")}`
-        ).replace(/\/$/, "");
-        const redirectUri = `${appUrl}/api/auth/callback/google`;
 
         if (!clientId || !clientSecret) {
           console.error("Missing Google Ads credentials");
@@ -1754,7 +1775,7 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
           params.append("client_secret", clientSecret);
           params.append("code", code as string);
           params.append("grant_type", "authorization_code");
-          params.append("redirect_uri", `${appUrl}/api/auth/callback/tiktok`);
+          params.append("redirect_uri", redirectUri);
           body = params;
         }
 
@@ -1821,10 +1842,6 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
       if (platform === "snapchat") {
         const clientId = process.env.SNAPCHAT_CLIENT_ID;
         const clientSecret = process.env.SNAPCHAT_CLIENT_SECRET;
-        const appUrl = (
-          process.env.APP_URL || `${req.protocol}://${req.get("host")}`
-        ).replace(/\/$/, "");
-        const redirectUri = `${appUrl}/api/auth/callback/snapchat`;
 
         if (!clientId || !clientSecret) {
           console.error("Missing Snapchat credentials");
@@ -1915,14 +1932,13 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
 
   // Explicit Meta routes
   app.get("/api/meta/connect", (req, res) => {
-    const appUrl = (
-      process.env.APP_URL || `${req.protocol}://${req.get("host")}`
-    ).replace(/\/$/, "");
-    const redirectUri = `${appUrl}/api/meta/callback`;
+    const appUrl = getAppUrl(req);
+    const clientRedirectUri = req.query.redirectUri as string;
+    const redirectUri = clientRedirectUri || `${appUrl}/api/meta/callback`;
     const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
     const uid = req.query.uid || req.userId || "default_uid";
     const state = Buffer.from(
-      JSON.stringify({ uid, platform: "meta" }),
+      JSON.stringify({ uid, platform: "meta", redirectUri }),
     ).toString("base64");
 
     if (!clientId) return res.status(400).send("META_CLIENT_ID not configured");
@@ -1946,10 +1962,8 @@ Respond STRICTLY in valid JSON format with responseMimeType config. It must incl
       const clientId = process.env.META_CLIENT_ID || process.env.META_APP_ID;
       const clientSecret =
         process.env.META_CLIENT_SECRET || process.env.META_APP_SECRET;
-      const appUrl = (
-        process.env.APP_URL || `${req.protocol}://${req.get("host")}`
-      ).replace(/\/$/, "");
-      const redirectUri = `${appUrl}/api/meta/callback`;
+      const appUrl = getAppUrl(req);
+      const redirectUri = decodedState.redirectUri || `${appUrl}/api/meta/callback`;
 
       const tokenResponse = await fetch(
         `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${clientId}&redirect_uri=${redirectUri}&client_secret=${clientSecret}&code=${code}`,

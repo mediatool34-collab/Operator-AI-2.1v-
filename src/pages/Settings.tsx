@@ -70,7 +70,8 @@ export function Settings() {
 
   const handleConnect = async (platform: string) => {
     try {
-      const response = await fetch(`/api/auth/connect/${platform}?uid=${user?.uid}&json=true`);
+      const clientRedirectUri = `${window.location.origin}/api/auth/callback/${platform}`;
+      const response = await fetch(`/api/auth/connect/${platform}?uid=${user?.uid}&redirectUri=${encodeURIComponent(clientRedirectUri)}&json=true`);
       const contentType = response.headers.get('content-type');
       
       if (!response.ok) {
