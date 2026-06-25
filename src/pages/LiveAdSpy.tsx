@@ -25,19 +25,6 @@ export function LiveAdSpy() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = usePersistedState<string | null>('ad_spy_analysis', null);
 
-  useEffect(() => {
-    if (location.state?.searchTerms) {
-      setSearchTerms(location.state.searchTerms);
-      // Auto-trigger search when navigated with terms
-      setTimeout(() => {
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        // Use the term directly to avoid state closure issues
-        executeSearch(fakeEvent, location.state.searchTerms);
-      }, 100);
-    }
-  }, [location.state]);
-
-
   const executeSearch = async (e: React.FormEvent, termToSearch: string = searchTerms) => {
     e.preventDefault();
     if (!termToSearch.trim()) return;
@@ -77,6 +64,19 @@ export function LiveAdSpy() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (location.state?.searchTerms) {
+      setSearchTerms(location.state.searchTerms);
+      // Auto-trigger search when navigated with terms
+      setTimeout(() => {
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        // Use the term directly to avoid state closure issues
+        executeSearch(fakeEvent, location.state.searchTerms);
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const handleAnalyze = async () => {
     if (ads.length === 0) return;

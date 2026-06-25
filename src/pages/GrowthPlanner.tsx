@@ -18,15 +18,6 @@ export function GrowthPlanner() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (location.state?.strategyData) {
-      setStrategyData(location.state.strategyData);
-      generateMonthPlan(location.state.strategyData);
-    } else {
-      setError("No initial context provided. Please run a Pre-Funnel Scan first.");
-    }
-  }, [location.state]);
-
   const generateMonthPlan = async (data: any) => {
     setIsGenerating(true);
     setError(null);
@@ -64,7 +55,7 @@ export function GrowthPlanner() {
         if (!response.ok || !contentType || !contentType.includes('application/json')) {
            const errText = await response.text();
            throw new Error(`Server returned ${response.status}: ${errText.slice(0, 100)}`);
-        }
+         }
         const parsed = await response.json();
         if (parsed.error) throw new Error(parsed.error);
         aiResult = parsed.result;
@@ -78,6 +69,16 @@ export function GrowthPlanner() {
       setIsGenerating(false);
     }
   };
+
+  useEffect(() => {
+    if (location.state?.strategyData) {
+      setStrategyData(location.state.strategyData);
+      generateMonthPlan(location.state.strategyData);
+    } else {
+      setError("No initial context provided. Please run a Pre-Funnel Scan first.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const handleCopy = () => {
     if (plan) {

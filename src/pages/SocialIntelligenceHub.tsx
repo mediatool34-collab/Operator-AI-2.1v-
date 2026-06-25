@@ -96,7 +96,7 @@ export function SocialIntelligenceHub() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.VITE_FIRECRAWL_API_KEY || ''}`
+            'Authorization': `Bearer ${(typeof process !== 'undefined' && process?.env?.VITE_FIRECRAWL_API_KEY) || import.meta.env.VITE_FIRECRAWL_API_KEY || ''}`
           },
           body: JSON.stringify({ url: profileUrl, options: { timeout: 45000 } })
         });
