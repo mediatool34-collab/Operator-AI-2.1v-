@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Calculator, Globe, Building2, Coins, MapPin, Sparkles, Loader2, Link2, Target, ArrowRight, BrainCircuit } from 'lucide-react';
 import { cn, safeJson } from '../lib/utils';
 import { analyzeWithGemini } from '../lib/gemini';
@@ -9,14 +9,10 @@ import remarkGfm from 'remark-gfm';
 
 export function BudgetPlanner() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = location.state as any;
-
-  const [budget, setBudget] = useState<number>(state?.budget ? Number(state.budget.replace(/,/g, '').replace(/[^0-9.]/g, '')) : 30000);
-  const [currency, setCurrency] = useState<string>(state?.currency ? state.currency.trim().split(' ')[0] : 'ج.م');
+  const [budget, setBudget] = useState<number>(30000);
+  const [currency, setCurrency] = useState<string>('ج.م');
   const [market, setMarket] = useState<string>('مصر');
-  const [businessUrl, setBusinessUrl] = useState<string>(state?.url || '');
-  const [passedFunnelStrategy, setPassedFunnelStrategy] = useState<any>(state?.funnelStrategy || null);
+  const [businessUrl, setBusinessUrl] = useState<string>('');
   const [, setPreFunnelUrl] = usePersistedState('pre_funnel_url', '');
   
   const [loading, setLoading] = useState(false);
@@ -66,13 +62,6 @@ ${sharedFunnelContext ? `
 PRE-FUNNEL DIAGNOSIS SIGNALS (Use this as SECONDARY context, do not base your entire budget on it):
 ${JSON.stringify(sharedFunnelContext)}
 Explain inside your plan how these funnel readiness signals influenced your budget confidence or testing splits.
-` : ''}
-
-${passedFunnelStrategy ? `
-FUNNEL STRATEGY PROVIDED BY USER:
-${JSON.stringify(passedFunnelStrategy)}
-
-CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${budget} ${currency} budget. Tell the user the closest expected results (e.g., CPA, CPL, ROAS, Revenue) they can realistically achieve using this specific funnel strategy with this budget in the ${market} market. Provide these projections clearly in your report under the "النتائج المتوقعة ومؤشرات القياس (Benchmarks)" section.
 ` : ''}
 
 قدم خطة تسويقية مبنية على بيانات حقيقية من السوق باستخدام أداة بحث جوجل (Google Search Grounding) المتاحة لك لجمع معلومات حقيقية وغير تكهنية. يجب أن تذكر مصادرك (روابط أو أسماء معروفة) لضمان الدقة وتجنب التكهنات.
@@ -143,14 +132,14 @@ CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${bud
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Advanced Auditor CTA Banner */}
       <div className="glass-panel p-4 rounded-2xl bg-gradient-to-r from-brand-accent/20 to-indigo-600/20 border border-brand-accent/30 flex items-center justify-between gap-4 overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-64 h-full bg-primary/5 skew-x-12 transform translate-x-1/2"></div>
+        <div className="absolute top-0 right-0 w-64 h-full bg-brand-accent/5 skew-x-12 transform translate-x-1/2"></div>
         <div className="flex items-center gap-4 relative z-10">
           <div className="p-3 bg-brand-accent rounded-xl shadow-lg">
-            <BrainCircuit className="w-6 h-6 text-foreground" />
+            <BrainCircuit className="w-6 h-6 text-white" />
           </div>
           <div>
             <h3 className="font-bold text-white leading-tight">Need a Deep Social Media Audit?</h3>
-            <p className="text-sm text-muted-foreground">Complete competitor hooks, pricing study, and campaign architecture in one click.</p>
+            <p className="text-sm text-gray-400">Complete competitor hooks, pricing study, and campaign architecture in one click.</p>
           </div>
         </div>
         <button 
@@ -164,7 +153,7 @@ CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${bud
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-            <Calculator className="w-8 h-8 text-primary" />
+            <Calculator className="w-8 h-8 text-brand-accent" />
             Strategic Budget Orchestration
           </h1>
           <p className="text-gray-400 mt-2">Generate AI-powered marketing blueprints based on your business URL.</p>
@@ -213,7 +202,7 @@ CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${bud
                     <select 
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
-                      className="bg-transparent border-l border-white/10 h-full px-3 text-sm text-muted-foreground outline-none focus:ring-0 appearance-none cursor-pointer"
+                      className="bg-transparent border-l border-white/10 h-full px-3 text-sm text-gray-300 outline-none focus:ring-0 appearance-none cursor-pointer"
                     >
                       <option value="ج.م">EGP</option>
                       <option value="ر.س">SAR</option>
@@ -253,20 +242,6 @@ CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${bud
                   placeholder="https://example.com"
                 />
               </div>
-
-              {/* Passed Funnel Strategy Indicator */}
-              {passedFunnelStrategy && (
-                <div className="mt-6 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 flex flex-col gap-2 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 blur-xl pointer-events-none"></div>
-                  <h3 className="text-[10px] font-black tracking-widest text-purple-400 uppercase flex items-center gap-2 relative z-10">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Funnel Strategy Synced
-                  </h3>
-                  <p className="text-xs text-purple-200/60 leading-relaxed relative z-10">
-                    A custom Funnel Strategy has been linked. The AI will analyze this strategy against your budget to project your most realistic KPIs.
-                  </p>
-                </div>
-              )}
 
               {/* Shared Funnel Context (Strategic Impact) */}
               {sharedFunnelContext && (
@@ -331,7 +306,7 @@ CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${bud
           <div className="glass-panel p-8 rounded-2xl border border-white/5 min-h-[500px] h-full relative">
             {!report && !loading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 opacity-60">
-                <Target className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
+                <Target className="w-16 h-16 text-gray-500 mb-4 opacity-50" />
                 <h3 className="text-xl font-bold text-white mb-2">Awaiting Parameters</h3>
                 <p className="text-gray-400 max-w-sm">
                   Enter your budget, select your target market, and provide your business URL to generate a hyper-customized AI orchestration plan.
@@ -355,7 +330,7 @@ CRITICAL INSTRUCTION: Analyze the above Funnel Strategy in relation to the ${bud
             {report && !loading && (
               <div className="prose prose-invert prose-brand max-w-none 
                 prose-h2:text-white prose-h2:border-b-2 border-white/10 prose-h2:pb-2 
-                prose-h3:text-foreground prose-h3:mt-6 prose-h3:mb-4
+                prose-h3:text-gray-200 prose-h3:mt-6 prose-h3:mb-4
                 prose-p:text-gray-300 prose-p:leading-relaxed 
                 prose-strong:text-brand-accent 
                 prose-ul:text-gray-300

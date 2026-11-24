@@ -5,15 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "gcp-build": "npm run build",
-    "start": "node dist/server.cjs",
+    "start": "node dist/server.js",
+    "build": "vite build && esbuild server.ts --platform=node --target=node20 --outdir=dist --bundle --packages=external --format=esm",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^9.21.0",
     "@google/genai": "latest",
     "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.15.2",
@@ -32,7 +31,6 @@
     "globals": "^17.5.0",
     "google-ads-api": "^23.0.0",
     "ioredis": "^5.10.1",
-    "json5": "^2.2.3",
     "lucide-react": "^0.344.0",
     "motion": "^12.38.0",
     "node-cache": "^5.1.2",

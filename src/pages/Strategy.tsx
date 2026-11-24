@@ -174,7 +174,7 @@ Provide the output in Markdown format with the following sections:
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <AlertOctagon className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Error Fetching Data</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Error Fetching Data</h2>
           <p className="text-red-300 mb-6">{error}</p>
           <button onClick={fetchAllData} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors shadow-[0_0_15px_rgba(37,99,235,0.3)]">
             Try Again
@@ -191,7 +191,7 @@ Provide the output in Markdown format with the following sections:
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <Activity className="w-12 h-12 text-blue-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Not Connected</h2>
-          <p className="text-muted-foreground mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to generate a strategy.</p>
+          <p className="text-gray-400 mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to generate a strategy.</p>
         </div>
       </div>
     );
@@ -222,7 +222,7 @@ Provide the output in Markdown format with the following sections:
 
       {campaignData.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center glass-panel rounded-2xl">
-          <Activity className="w-12 h-12 text-muted-foreground mb-4" />
+          <Activity className="w-12 h-12 text-gray-500 mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">No Active Campaigns</h2>
           <p className="text-gray-400 mb-6">We couldn't find any campaigns with spend in the selected date range.</p>
         </div>
@@ -286,7 +286,7 @@ Provide the output in Markdown format with the following sections:
               </div>
               <div className="p-6 flex-1">
                 {strategy ? (
-                  <div className="prose prose-sm prose-invert max-w-none text-muted-foreground prose-headings:text-white prose-a:text-blue-400" dir="auto">
+                  <div className="prose prose-sm prose-invert max-w-none text-gray-300 prose-headings:text-white prose-a:text-blue-400" dir="auto">
                     <ReactMarkdown>{strategy}</ReactMarkdown>
                   </div>
                 ) : (

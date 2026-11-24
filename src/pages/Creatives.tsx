@@ -15,7 +15,7 @@ function formatCurrency(value: number) {
 export function Creatives() {
   const { user } = useAuth();
   const { provider: aiProvider } = useAiSettings();
-  const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, platform, metaSubPlatform } = useFilters();
+  const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, snapchatToken, platform, metaSubPlatform } = useFilters();
   const [creatives, setCreatives] = usePersistedState<any[]>('creatives_list', []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +26,9 @@ export function Creatives() {
     if (platform === 'meta') return metaToken;
     if (platform === 'google') return googleToken;
     if (platform === 'tiktok') return tiktokToken;
+    if (platform === 'snapchat') return snapchatToken;
     return null;
-  }, [platform, metaToken, googleToken, tiktokToken]);
+  }, [platform, metaToken, googleToken, tiktokToken, snapchatToken]);
 
   const fetchAll = useCallback(async () => {
     const token = getToken();
@@ -226,7 +227,7 @@ Provide the output in Markdown format with the following sections:
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Error Fetching Data</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Error Fetching Data</h2>
           <p className="text-red-300 mb-6">{error}</p>
           <button onClick={fetchAll} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors shadow-[0_0_15px_rgba(37,99,235,0.3)]">
             Try Again
@@ -243,7 +244,7 @@ Provide the output in Markdown format with the following sections:
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <Activity className="w-12 h-12 text-blue-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Not Connected</h2>
-          <p className="text-muted-foreground mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to view creatives.</p>
+          <p className="text-gray-400 mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to view creatives.</p>
         </div>
       </div>
     );
@@ -371,7 +372,7 @@ Provide the output in Markdown format with the following sections:
                     </div>
                     AI Generated Creative Strategy
                   </h4>
-                  <div className="prose prose-sm prose-invert max-w-none text-muted-foreground prose-headings:text-white prose-a:text-blue-400" dir="auto">
+                  <div className="prose prose-sm prose-invert max-w-none text-gray-300 prose-headings:text-white prose-a:text-blue-400" dir="auto">
                     <ReactMarkdown>{generatedConcepts[creative.id]}</ReactMarkdown>
                   </div>
                 </div>

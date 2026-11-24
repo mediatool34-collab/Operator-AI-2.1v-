@@ -6,6 +6,7 @@ import { AdSpyEngine } from '../intel/adSpy.ts';
 import axios from 'axios';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI } from '@google/genai';
 
 export interface IntelligenceReport {
   domain: string;
@@ -85,7 +86,53 @@ export class IntelligenceService {
       const isJsonRequest = prompt.toLowerCase().includes('json');
 
       if (modelType === 'gemini') {
-        throw new Error('Gemini calls from backend are deprecated. Please use the frontend analyzeWithGemini() function to comply with security guidelines.');
+        const key = process.env.GEMINI_API_KEY;
+        if (!key || key === 'TODO') {
+          throw new Error('Gemini API Key is missing. Please add it to the Secrets panel in AI Studio.');
+        }
+        const ai = new GoogleGenAI({
+          apiKey: key,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            }
+          }
+        });
+        const targetModel = 'gemini-2.5-flash';
+        const config: any = {
+          responseMimeType: isJsonRequest ? "application/json" : "text/plain",
+        };
+        if (!isJsonRequest && prompt.length < 6000) {
+          config.tools = [{ googleSearch: {} }];
+        }
+        let response;
+        try {
+          response = await ai.models.generateContent({
+            model: targetModel,
+            contents: prompt,
+            config
+          });
+        } catch (firstErr: any) {
+          if (config.tools) {
+            delete config.tools;
+          }
+          if (firstErr.message?.includes('429') || firstErr.message?.includes('RESOURCE_EXHAUSTED') || firstErr.message?.includes('503') || firstErr.message?.includes('404')) {
+            console.warn('[IntelligenceService] Primary model failed, trying fallback gemini-3.1-flash-lite...');
+            try {
+              response = await ai.models.generateContent({
+                model: 'gemini-3.1-flash-lite',
+                contents: prompt,
+                config
+              });
+            } catch (fallbackErr: any) {
+              console.warn('[IntelligenceService] Fallback model also failed:', fallbackErr?.message?.slice(0, 80));
+              throw fallbackErr;
+            }
+          } else {
+            throw firstErr;
+          }
+        }
+        return response.text || '';
       }
 
       if (modelType === 'openai') {

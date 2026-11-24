@@ -33,16 +33,9 @@ import { scrapeWebsite, scrapeSocialPage } from '../services/scraper';
 import { usePersistedState } from '../hooks/usePersistedState';
 
 interface ContentPlan {
-  businessAudit: {
-    model: string;
-    targetAvatarSummary: string;
-    brandVoice: string;
-    conversionFriction: string;
-  };
   competitorAnalysis: {
     topCompetitors: string[];
     rivalStrategies: string[];
-    rivalContentFormats: string[];
     gapOpportunity: string;
     rationale: string;
     marketSophistication: string; // Stage 1-5
@@ -118,11 +111,11 @@ export function ContentArchitect() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<ContentPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'plan' | 'ads' | 'ugc' | 'market' | 'deep' | 'audit'>('market');
+  const [activeTab, setActiveTab] = useState<'plan' | 'ads' | 'ugc' | 'market' | 'deep'>('market');
   const [preFunnelStrategy] = usePersistedState<any>('pre_funnel_strategy', null);
 
   const languages = ['English', 'Arabic', 'French', 'Spanish', 'German', 'Chinese', 'Japanese', 'Russian', 'Portuguese', 'Hindi'];
-  const countries = ['Global', 'Egypt', 'Saudi Arabia', 'UAE', 'USA', 'UK', 'France', 'Germany', 'China', 'Japan', 'Brazil', 'Kuwait', 'Qatar'];
+  const countries = ['Global', 'Egypt', 'Saudi Arabia', 'UAE', 'USA', 'UK', 'France', 'Germany', 'China', 'Japan', 'Brazil'];
 
   const handleAnalyze = async () => {
     if (!url) return;
@@ -145,9 +138,8 @@ export function ContentArchitect() {
         MISSION: 
         Transform the provided raw data into a Battle-Tested Growth Blueprint. 
         Your output must be COLD, ANALYTICAL, and BRUTALLY REALISTIC. No generic AI fluff.
-
-        SOURCE DATA (BUSINESS UNDER STUDY):
-        Website/Brand Content: ${JSON.stringify(scrapedData).substring(0, 150000)}
+        SOURCE DATA:
+        Website/Brand Content: ${JSON.stringify(scrapedData)}
         ${preFunnelStrategy ? `Strategic Pre-Funnel Context (USE THIS FOR CONSISTENCY): ${JSON.stringify({
           businessSummary: preFunnelStrategy.businessSummary,
           competitorInsights: preFunnelStrategy.competitorInsights,
@@ -158,15 +150,9 @@ export function ContentArchitect() {
         Geo: ${selectedCountry}
         Language: ${selectedLanguage}
         
-        PHASE 0: FORENSIC BUSINESS AUDIT
-        - Study the provided URL content deeply. What is the actual business model? B2B, DTC, Service, Lead Gen?
-        - Identify the "Tone of Voice" and "Target Avatar" based on the writing style of the landing page.
-        - Identify "Conversion Friction": Why would someone NOT buy right now?
-
-        PHASE 1: THE MARKET TRUTH & COMPETITOR CONTENT BENCHMARKING
+        PHASE 1: THE MARKET TRUTH (SITUATIONAL ANALYSIS)
         - Determine "Market Sophistication" (Eugene Schwartz Stage 1-5). Be precise.
-        - Identify 3 ACTUAL direct competitors that are currently scaling and winning.
-        - COMPETITOR CONTENT AUDIT: Analyze what content formats they are using (e.g., "Problem/Solution UGC", "Founder Story ads", "Direct Comparison tables").
+        - Identify 3 ACTUAL direct competitors that are currently scaling.
         - Analyze why they are winning and find the "Update Gap" where we can strike.
 
         PHASE 2: DEEP INTEL (HUMAN PSYCHOLOGY)
@@ -183,27 +169,17 @@ export function ContentArchitect() {
         - HOOKS: A specialized matrix of Aggressive, Curiosity, and Pattern-Interrupt hooks.
 
         MANDATORY RULES:
-        - Output MUST be valid JSON only. No markdown, no introductory text.
-        - CRITICAL: Ensure every array element and object property is separated by a comma.
-        - CRITICAL: Use double quotes for all keys and string values.
-        - CRITICAL: Escape any double quotes inside string values as \\".
-        - Do not use unescaped newlines inside JSON values; use \\n instead.
+        - Output MUST be valid JSON.
         - RATIONALE: Every tactical recommendation MUST reference a psychological principle or market data signal.
         - TONE: High-end consulting style. Actionable, not inspirational.
+        - Use single quotes (') for quotes within strings to avoid JSON breaks.
         - LANGUAGE: Professional ${selectedLanguage} (Using industry terms properly).
 
         JSON SCHEMA (REQUIRED):
         {
-          "businessAudit": {
-            "model": "Detailed description of the business model",
-            "targetAvatarSummary": "Summarized target buyer profile",
-            "brandVoice": "Tone description",
-            "conversionFriction": "Identify why people might hesitate to convert"
-          },
           "competitorAnalysis": {
             "topCompetitors": ["Names only"],
             "rivalStrategies": ["Specific tactics they use"],
-            "rivalContentFormats": ["Specific content types competitors use for ads"],
             "gapOpportunity": "Winning gap description",
             "rationale": "Market principle backing this gap",
             "marketSophistication": "Stage X + logic"
@@ -246,28 +222,24 @@ export function ContentArchitect() {
       // Sanitization step
       let sanitizedResult = result.trim();
       
-      // Remove potential markdown wrappers
-      sanitizedResult = sanitizedResult.replace(/^```json\s*|\s*```$/g, '').trim();
+      // Remove markdown blocks if they still appear despite JSON mode
+      if (sanitizedResult.includes('```')) {
+        sanitizedResult = sanitizedResult.replace(/```json/g, '').replace(/```/g, '').trim();
+      }
 
-      // Final attempt to find the main JSON object if there's surrounding text
+      // Final attempt to find the JSON object if there's surrounding text
       const firstBrace = sanitizedResult.indexOf('{');
       const lastBrace = sanitizedResult.lastIndexOf('}');
       if (firstBrace !== -1 && lastBrace !== -1) {
         sanitizedResult = sanitizedResult.substring(firstBrace, lastBrace + 1);
       }
       
-      // Clean up common AI JSON errors
-      sanitizedResult = sanitizedResult
-        .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
-        .replace(/([}\]])\s*([{\["'])/g, '$1, $2'); // Add missing commas between objects/arrays/keys if possible
-
       try {
         setAnalysisResult(JSON.parse(sanitizedResult));
-        setActiveTab('audit');
+        setActiveTab('market');
       } catch (parseErr) {
         console.error("JSON Parse Error. Raw result:", result);
-        console.error("Sanitized result:", sanitizedResult);
-        throw new Error("The AI returned an invalid content structure. This usually happens with very long responses. Please try shortened URL or simpler input.");
+        throw new Error("The AI returned an invalid content structure. This usually happens with very long responses. Please try again.");
       }
     } catch (err: any) {
        console.error("Analysis failed:", err);
@@ -278,17 +250,17 @@ export function ContentArchitect() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-brand-bg text-white pb-20 overflow-x-hidden">
       {/* Header Section */}
       <section className="relative pt-12 pb-20 px-6 border-b border-white/5 overflow-hidden">
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-primary/5 -skew-x-12 translate-x-1/2 blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-brand-accent/5 -skew-x-12 translate-x-1/2 blur-3xl"></div>
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-primary text-xs font-black uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-xs font-black uppercase tracking-widest">
               <Sparkles className="w-3 h-3" />
               Global Engine 5.0
             </div>
@@ -296,7 +268,7 @@ export function ContentArchitect() {
               THE CONTENT <br />
               <span className="text-brand-accent">ARCHITECT</span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl font-medium">
+            <p className="text-xl text-gray-400 max-w-2xl font-medium">
               Transform any URL into a production-ready ad ecosystem. Competitor auditing, multi-cultural angles, and high-conversion ad copies.
             </p>
           </motion.div>
@@ -304,14 +276,14 @@ export function ContentArchitect() {
           <div className="mt-12 flex flex-col xl:flex-row gap-4 items-stretch">
              <div className="relative flex-1 group">
                 <div className="absolute inset-0 bg-brand-accent/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
-                <div className="relative h-full flex items-center bg-card border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all focus-within:border-brand-accent/50">
-                  <div className="pl-6 text-muted-foreground shrink-0">
+                <div className="relative h-full flex items-center bg-brand-panel border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all focus-within:border-brand-accent/50">
+                  <div className="pl-6 text-gray-500 shrink-0">
                     <LinkIcon className="w-5 h-5" />
                   </div>
                   <input 
                     type="text" 
                     placeholder="Enter Product URL, Instagram ID, or Sales Page..."
-                    className="w-full bg-transparent border-none py-6 px-6 text-white text-lg focus:outline-none placeholder:text-muted-foreground font-bold"
+                    className="w-full bg-transparent border-none py-6 px-6 text-white text-lg focus:outline-none placeholder:text-gray-600 font-bold"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                   />
@@ -392,7 +364,6 @@ export function ContentArchitect() {
             {/* Tab Navigation */}
             <div className="flex flex-wrap gap-1 bg-brand-panel p-1.5 rounded-[2rem] border border-white/5 mb-12 w-fit">
               {[
-                { id: 'audit', label: 'Business Audit', icon: Search },
                 { id: 'market', label: 'Market Pulse', icon: Compass },
                 { id: 'deep', label: 'Deep Intel', icon: BrainCircuit },
                 { id: 'plan', label: 'Strategic Plan', icon: Layout },
@@ -406,7 +377,7 @@ export function ContentArchitect() {
                     "flex items-center gap-2 px-8 py-4 rounded-[1.5rem] text-sm font-black uppercase tracking-widest transition-all",
                     activeTab === tab.id 
                       ? "bg-brand-accent text-white shadow-xl" 
-                      : "text-gray-500 hover:text-muted-foreground hover:bg-white/5"
+                      : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
                   )}
                 >
                   <tab.icon className="w-4 h-4" />
@@ -420,85 +391,30 @@ export function ContentArchitect() {
               {/* Left Column */}
               <div className="lg:col-span-8 space-y-8">
                 
-                {/* BUSINESS AUDIT TAB */}
-                {activeTab === 'audit' && (
-                  <div className="space-y-8">
-                    <div className="p-10 rounded-[2.5rem] bg-brand-panel border border-brand-accent/20 relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                        <Search className="w-40 h-40" />
-                      </div>
-                      <div className="relative z-10 space-y-8">
-                        <div>
-                          <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-4">Forensic Business Audit</h3>
-                          <p className="text-gray-400 text-lg font-medium leading-relaxed max-w-2xl">
-                            We analyzed your business architecture and brand signals to determine the optimal growth path.
-                          </p>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3">
-                            <p className="text-[10px] font-black text-brand-accent uppercase tracking-widest">Business Model Identification</p>
-                            <p className="text-foreground font-bold leading-relaxed">{analysisResult.businessAudit.model}</p>
-                          </div>
-                          <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3">
-                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Brand Voice & Persona</p>
-                            <p className="text-gray-200 font-bold leading-relaxed">{analysisResult.businessAudit.brandVoice}</p>
-                          </div>
-                          <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3">
-                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Target Avatar Profile</p>
-                            <p className="text-gray-200 font-bold leading-relaxed">{analysisResult.businessAudit.targetAvatarSummary}</p>
-                          </div>
-                          <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/10 space-y-3">
-                            <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">Major Conversion Friction</p>
-                            <p className="text-gray-200 font-bold leading-relaxed">{analysisResult.businessAudit.conversionFriction}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* MARKET PULSE TAB */}
                 {activeTab === 'market' && (
                   <div className="space-y-8">
                     <div className="p-8 rounded-[2.5rem] bg-brand-panel border border-brand-accent/20 space-y-6">
                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Competitor Audit</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-6">
-                          <div className="space-y-4">
-                            <p className="text-xs font-black text-brand-accent uppercase tracking-widest">Identified Rivals</p>
-                            <div className="flex flex-wrap gap-2">
-                              {analysisResult.competitorAnalysis.topCompetitors.map((c, i) => (
-                                <span key={i} className="px-4 py-2 bg-white/5 rounded-xl text-sm font-bold text-gray-300 border border-white/10">{c}</span>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="space-y-4">
-                            <p className="text-xs font-black text-brand-accent uppercase tracking-widest">Rival Tactics</p>
-                            <ul className="space-y-2">
-                               {analysisResult.competitorAnalysis.rivalStrategies.map((s, i) => (
-                                 <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
-                                   <div className="w-1.5 h-1.5 rounded-full bg-brand-accent mt-1 shrink-0" />
-                                   {s}
-                                 </li>
-                               ))}
-                            </ul>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-4">
+                          <p className="text-xs font-black text-brand-accent uppercase tracking-widest">Identified Rivals</p>
+                          <div className="flex flex-wrap gap-2">
+                            {analysisResult.competitorAnalysis.topCompetitors.map((c, i) => (
+                              <span key={i} className="px-4 py-2 bg-white/5 rounded-xl text-sm font-bold text-gray-300 border border-white/10">{c}</span>
+                            ))}
                           </div>
                         </div>
-                        <div className="space-y-6">
-                          <div className="space-y-4">
-                            <p className="text-xs font-black text-brand-accent uppercase tracking-widest">Competitor Ad Formats (Benchmark)</p>
-                            <div className="grid grid-cols-1 gap-2">
-                               {analysisResult.competitorAnalysis.rivalContentFormats && analysisResult.competitorAnalysis.rivalContentFormats.map((f, i) => (
-                                 <div key={i} className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                      <Video className="w-4 h-4" />
-                                    </div>
-                                    <span className="text-[11px] font-bold text-gray-300">{f}</span>
-                                 </div>
-                               ))}
-                            </div>
-                          </div>
+                        <div className="space-y-4">
+                          <p className="text-xs font-black text-brand-accent uppercase tracking-widest">Rival Tactics</p>
+                          <ul className="space-y-2">
+                             {analysisResult.competitorAnalysis.rivalStrategies.map((s, i) => (
+                               <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
+                                 <div className="w-1.5 h-1.5 rounded-full bg-brand-accent mt-1 shrink-0" />
+                                 {s}
+                               </li>
+                             ))}
+                          </ul>
                         </div>
                       </div>
                       <div className="pt-4 border-t border-white/5 space-y-4">

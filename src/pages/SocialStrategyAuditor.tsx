@@ -30,13 +30,11 @@ import {
   Calculator,
   History
 } from 'lucide-react';
-import { cn, safeJson } from '../lib/utils';
+import { cn } from '../lib/utils';
 import { analyzeWithGemini } from '../lib/gemini';
 import { scrapeSocialPage } from '../services/scraper';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
-import { useAuth } from '../lib/auth';
-import { useFilters } from '../lib/FilterContext';
 
 interface Section {
   id: string;
@@ -55,8 +53,6 @@ const sections: Section[] = [
 ];
 
 export function SocialStrategyAuditor() {
-  const { user } = useAuth();
-  const { selectedAccountId, platform, metaSubPlatform, datePreset, metaToken, googleToken, tiktokToken, adAccounts } = useFilters();
   const [profileUrl, setProfileUrl] = useState('');
   const [competitorUrls, setCompetitorUrls] = useState<string[]>(['']);
   const [market, setMarket] = useState('Egypt');
@@ -68,15 +64,6 @@ export function SocialStrategyAuditor() {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const activeAccount = selectedAccountId ? adAccounts.find(a => a.id === selectedAccountId) : null;
-
-  const getToken = React.useCallback(() => {
-    if (platform === 'meta') return metaToken;
-    if (platform === 'google') return googleToken;
-    if (platform === 'tiktok') return tiktokToken;
-    return null;
-  }, [platform, metaToken, googleToken, tiktokToken]);
 
   const addCompetitor = () => setCompetitorUrls([...competitorUrls, '']);
   const removeCompetitor = (index: number) => {
@@ -108,47 +95,16 @@ export function SocialStrategyAuditor() {
       setProgressLabel(`Scraping main profile: ${profileUrl}...`);
       let profileData = {};
       try {
-        const platformType = profileUrl.includes('facebook') ? 'facebook' : 
+        const platform = profileUrl.includes('facebook') ? 'facebook' : 
                          profileUrl.includes('instagram') ? 'instagram' : 
                          profileUrl.includes('tiktok') ? 'tiktok' : 'facebook';
-        profileData = await scrapeSocialPage(profileUrl, platformType as any);
+        profileData = await scrapeSocialPage(profileUrl, platform as any);
       } catch (e) {
         console.warn('Scraping failed, proceeding with manual awareness', e);
       }
 
-      // 2. Fetch Live Campaign Data if connected
+      // 2. Prepare Detailed Prompt
       setProgress(40);
-      setProgressLabel('Syncing live ad account data...');
-      let campaignContext = "";
-      const token = getToken();
-
-      if (token && selectedAccountId && user) {
-        try {
-          const headers = { 'x-user-id': user.uid, [`x-${platform}-token`]: token };
-          const q = `accountId=${selectedAccountId}&platform=${platform}&subPlatform=${metaSubPlatform}`;
-          const [campRes, insightRes] = await Promise.all([
-            fetch(`/api/campaigns?${q}`, { headers }),
-            fetch(`/api/insights?${q}&datePreset=${datePreset}`, { headers })
-          ]);
-          
-          const campData = await safeJson(campRes);
-          const insightData = await safeJson(insightRes);
-          
-          if (campData.campaigns && insightData.insights) {
-            const combined = campData.campaigns.map((c: any) => {
-              const metrics = insightData.insights.find((i: any) => i.id === c.id)?.metrics;
-              return { name: c.name, status: c.status, budget: c.raw?.daily_budget, metrics };
-            }).filter((c: any) => c.status !== 'ARCHIVED');
-            
-            campaignContext = JSON.stringify(combined).substring(0, 50000); // Up to 50k chars
-          }
-        } catch (fetchErr) {
-          console.warn('Could not fetch live campaign data', fetchErr);
-        }
-      }
-
-      // 3. Prepare Detailed Prompt
-      setProgress(60);
       setProgressLabel('Generating strategy blueprint...');
 
       const prompt = `
@@ -160,9 +116,7 @@ export function SocialStrategyAuditor() {
         TARGET MARKET: ${market}
         MONTHLY BUDGET: ${budget} ${currency}
         
-        CONTEXT DATA (Scraped): ${JSON.stringify(profileData).substring(0, 100000)}
-        
-        ${campaignContext ? `REAL AD ACCOUNT DATA:\n${campaignContext}\n(Use this real data to inform your audit instead of just relying on the website)` : `Note: No live ad account connected.`}
+        CONTEXT DATA (Scraped): ${JSON.stringify(profileData)}
         
         INSTRUCTIONS:
         1. Use Google Search Grounding to find REAL-WORLD evidence for benchmarks, competitor pricing, and active offers in the ${market} market.
@@ -261,13 +215,13 @@ export function SocialStrategyAuditor() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <div className="p-2.5 bg-primary/20 rounded-2xl border border-brand-accent/40 shadow-[0_0_25px_rgba(59,130,246,0.2)]">
-              <BrainCircuit className="w-7 h-7 text-primary" />
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <div className="p-2.5 bg-brand-accent/20 rounded-2xl border border-brand-accent/40 shadow-[0_0_25px_rgba(59,130,246,0.2)]">
+              <BrainCircuit className="w-7 h-7 text-brand-accent" />
             </div>
             Advanced Social Strategy & Audit
           </h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl px-1">
+          <p className="text-gray-400 mt-2 max-w-2xl px-1">
             Analyze any social media page to extract missing elements, competitor pricing, ad structure, and market-specific financial benchmarks using AI grounding.
           </p>
         </div>
@@ -371,7 +325,7 @@ export function SocialStrategyAuditor() {
                 Monthly Ad Budget
               </label>
               <div className="relative">
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">{currency}</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-gray-500">{currency}</span>
                 <input
                   type="number"
                   value={budget}
@@ -491,7 +445,7 @@ export function SocialStrategyAuditor() {
                         </h3>
                         <div className="space-y-3">
                           {(analysisResult?.audit?.missingElements || []).map((el: string, idx: number) => (
-                            <div key={idx} className="flex items-center gap-3 p-4 bg-red-500/5 border border-red-500/10 rounded-2xl text-muted-foreground">
+                            <div key={idx} className="flex items-center gap-3 p-4 bg-red-500/5 border border-red-500/10 rounded-2xl text-gray-300">
                               <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
                               <span className="font-medium text-lg leading-relaxed">{el}</span>
                             </div>
@@ -551,7 +505,7 @@ export function SocialStrategyAuditor() {
                         <div className="p-6 bg-brand-accent/5 rounded-3xl border border-brand-accent/10 space-y-4">
                           <div className="flex items-center gap-2 mb-2">
                             <Flame className="w-5 h-5 text-orange-400" />
-                            <h4 className="font-bold text-lg text-foreground">Reels Hooks (المقاطع القصيرة)</h4>
+                            <h4 className="font-bold text-lg text-gray-200">Reels Hooks (المقاطع القصيرة)</h4>
                           </div>
                           {(analysisResult?.competitors?.hooks?.reels || []).map((h: string, i: number) => (
                             <div key={i} className="flex gap-4 items-start p-3 bg-white/5 rounded-xl text-gray-300">
@@ -607,7 +561,7 @@ export function SocialStrategyAuditor() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-right" dir="rtl">
-                      <div className="space-y-4 p-8 bg-card/50 rounded-[2rem] border border-white/5 shadow-2xl">
+                      <div className="space-y-4 p-8 bg-brand-panel/50 rounded-[2rem] border border-white/5 shadow-2xl">
                         <h3 className="text-xl font-bold text-white flex items-center gap-3">
                           قوة الطلب (Demand Analysis)
                         </h3>
@@ -776,7 +730,7 @@ export function SocialStrategyAuditor() {
                           </div>
                           
                           <div className="space-y-6">
-                            <div className="p-6 bg-brand-panel rounded-[2rem] border border-border">
+                            <div className="p-6 bg-brand-panel rounded-[2rem] border border-brand-border">
                               <h4 className="text-brand-accent font-bold mb-3 flex items-center gap-2">
                                 <Info className="w-4 h-4" />
                                 لماذا هذا الهيكل؟

@@ -1,60 +1,122 @@
-import { GoogleGenAI } from "@google/genai";
-
 /**
  * Frontend-side Gemini AI service.
- * Follows AI Studio guidelines by calling Gemini API directly from the client.
+ * Calls server-side Gemini API endpoint to ensure secure server-side execution.
  */
 export async function analyzeWithGemini(prompt: string, isJson: boolean = false): Promise<string> {
-  const rawKey = (typeof process !== 'undefined' && process?.env ? (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) : '') || import.meta.env.VITE_GEMINI_API_KEY || '';
-  const apiKey = (rawKey || '').trim().replace(/^["']|["']$/g, '');
-  
-  if (!apiKey || apiKey === 'TODO') {
-    throw new Error('Gemini API Key is missing. Please add it to the Secrets panel in AI Studio.');
-  }
+  const userId = localStorage.getItem('operator_user_id') || localStorage.getItem('user_id') || 'anonymous';
 
-  const ai = new GoogleGenAI({ apiKey });
-  
-  const generate = async (modelName: string) => {
-    const config: any = {
-      responseMimeType: isJson ? "application/json" : "text/plain"
-    };
+  const executeOnce = async (): Promise<string> => {
+    const response = await fetch('/api/gemini/analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
+      body: JSON.stringify({ prompt, isJson, stream: true }),
+    });
 
-    // Enable Google Search Grounding for natural language responses (non-JSON)
-    if (!isJson) {
-      config.tools = [{ googleSearch: {} }];
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/x-ndjson') && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalText: string | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) {
+          buffer += decoder.decode(value, { stream: !done });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line) continue;
+            let msg: any;
+            try {
+              msg = JSON.parse(line);
+            } catch {
+              continue;
+            }
+            if (msg.ping) continue;
+            if (msg.error) {
+              const err: any = new Error(msg.error);
+              err.status = msg.status;
+              throw err;
+            }
+            if (msg.done) {
+              finalText = msg.text || '';
+            }
+          }
+        }
+        if (done) break;
+      }
+
+      if (buffer.trim()) {
+        try {
+          const tail = JSON.parse(buffer.trim());
+          if (tail.error) {
+            const err: any = new Error(tail.error);
+            err.status = tail.status;
+            throw err;
+          }
+          if (tail.done) {
+            finalText = tail.text || '';
+          }
+        } catch (parseErr: any) {
+          if (parseErr?.message && !parseErr.message.includes('JSON')) {
+            throw parseErr;
+          }
+        }
+      }
+
+      if (finalText !== null) {
+        return finalText;
+      }
+      throw new Error('انقطع الاتصال قبل اكتمال التحليل. يرجى المحاولة مرة أخرى.');
     }
 
-    return await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config
-    });
+    if (!contentType.includes('application/json')) {
+      const rawText = await response.text();
+      console.warn(`[Gemini Client] Expected JSON/NDJSON but received non-JSON (status: ${response.status}):`, rawText.slice(0, 100));
+      if (response.status === 504 || response.status === 502 || rawText.includes('<!doctype') || rawText.includes('Gateway')) {
+        const err: any = new Error('الخادم تحت ضغط مؤقت أو استغرق الرد وقتاً طويلاً. يرجى المحاولة مرة أخرى.');
+        err.status = response.status || 504;
+        throw err;
+      }
+      throw new Error(`خطأ في استجابة الخادم (${response.status})`);
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const err: any = new Error(data.error || 'Failed to generate AI response');
+      err.status = response.status;
+      throw err;
+    }
+
+    return data.text || '';
   };
 
-  try {
-    const targetModel = isJson ? "gemini-3.1-pro-preview" : "gemini-3.5-flash";
-    let response;
-    
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      response = await generate(targetModel);
-    } catch (modelError: any) {
-      if (isJson && (modelError.message?.includes('429') || modelError.message?.includes('RESOURCE_EXHAUSTED') || modelError.message?.includes('404'))) {
-        // Fallback to flash if pro hits quota or is not found
-        console.log('Falling back to flash model due to error or quota constraints.');
-        response = await generate('gemini-3.5-flash');
-      } else {
-        throw modelError;
+      return await executeOnce();
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const isTransient =
+        error?.status === 503 ||
+        error?.status === 504 ||
+        error?.status === 502 ||
+        msg.includes('503') ||
+        msg.includes('high demand') ||
+        msg.includes('ضغط مؤقت');
+      if (isTransient && attempt === 0) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        continue;
       }
+      throw error;
     }
-
-    return response.text || '';
-  } catch (error: any) {
-    if (error.message?.includes('API key not valid') || error.message?.includes('API_KEY_INVALID')) {
-      throw new Error('Invalid Gemini API Key. Please check the Secrets panel and ensure your key (starting with AIza...) is correctly copied.');
-    }
-    if (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
-      throw new Error('Rate limit exceeded (Quota Exhausted). Please wait a few moments and try again, or check your API key billing details.');
-    }
-    throw error;
   }
+
+  throw new Error('Failed to generate AI response');
 }

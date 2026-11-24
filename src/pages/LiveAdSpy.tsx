@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, Globe, Filter, ExternalLink, Calendar, Users, DollarSign, Eye, AlertCircle, Sparkles, Zap } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useFilters } from '../lib/FilterContext';
 import { cn, safeJson } from '../lib/utils';
@@ -13,7 +12,6 @@ export function LiveAdSpy() {
   const { provider: aiProvider } = useAiSettings();
   const { user } = useAuth();
   const { metaToken, metaSubPlatform } = useFilters();
-  const location = useLocation();
   
   const [searchTerms, setSearchTerms] = usePersistedState('ad_spy_search', '');
   const [country, setCountry] = usePersistedState('ad_spy_country', 'US');
@@ -25,9 +23,9 @@ export function LiveAdSpy() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = usePersistedState<string | null>('ad_spy_analysis', null);
 
-  const executeSearch = async (e: React.FormEvent, termToSearch: string = searchTerms) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!termToSearch.trim()) return;
+    if (!searchTerms.trim()) return;
     if (!metaToken) {
       setError('Meta connection required. Please connect your Meta account in Settings.');
       return;
@@ -44,8 +42,7 @@ export function LiveAdSpy() {
         'x-meta-token': metaToken
       };
 
-      const res = await fetch(`/api/ad-spy/meta?searchTerms=${encodeURIComponent(termToSearch)}&country=${country}&subPlatform=${metaSubPlatform}`, { headers });
-
+      const res = await fetch(`/api/ad-spy/meta?searchTerms=${encodeURIComponent(searchTerms)}&country=${country}&subPlatform=${metaSubPlatform}`, { headers });
       
       const data = await safeJson(res);
 
@@ -64,19 +61,6 @@ export function LiveAdSpy() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (location.state?.searchTerms) {
-      setSearchTerms(location.state.searchTerms);
-      // Auto-trigger search when navigated with terms
-      setTimeout(() => {
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        // Use the term directly to avoid state closure issues
-        executeSearch(fakeEvent, location.state.searchTerms);
-      }, 100);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state]);
 
   const handleAnalyze = async () => {
     if (ads.length === 0) return;
@@ -141,8 +125,8 @@ export function LiveAdSpy() {
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Live Ad Spy System</h1>
-          <p className="text-muted-foreground text-sm mt-1">Search the Meta Ads Library for active ads to analyze winning patterns.</p>
+          <h1 className="text-2xl font-bold text-white">Live Ad Spy System</h1>
+          <p className="text-gray-400 text-sm mt-1">Search the Meta Ads Library for active ads to analyze winning patterns.</p>
         </div>
         {ads.length > 0 && (
           <button
@@ -170,9 +154,9 @@ export function LiveAdSpy() {
 
       {/* Search Bar */}
       <div className="glass-panel p-6 rounded-2xl">
-        <form onSubmit={executeSearch} className="flex flex-col md:flex-row gap-4">
+        <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
             <input
               type="text"
               placeholder="Search by keyword, page name, or advertiser..."
@@ -238,7 +222,7 @@ export function LiveAdSpy() {
             <Sparkles className="w-5 h-5 text-indigo-400" />
             <h2 className="text-lg font-bold text-indigo-300">AI Pattern Analysis</h2>
           </div>
-          <div className="prose prose-invert prose-indigo max-w-none text-sm text-muted-foreground">
+          <div className="prose prose-invert prose-indigo max-w-none text-sm text-gray-300">
             <Markdown>{analysis}</Markdown>
           </div>
         </div>
@@ -255,7 +239,7 @@ export function LiveAdSpy() {
                     {ad.page_name?.charAt(0) || 'A'}
                   </div>
                   <div>
-                    <div className="font-bold text-foreground text-sm line-clamp-1">{ad.page_name}</div>
+                    <div className="font-bold text-gray-200 text-sm line-clamp-1">{ad.page_name}</div>
                     <div className="text-xs text-gray-500 flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       Started: {ad.ad_delivery_start_time ? new Date(ad.ad_delivery_start_time).toLocaleDateString() : 'Unknown'}
@@ -311,7 +295,7 @@ export function LiveAdSpy() {
       
       {!loading && ads.length === 0 && searchTerms && !error && (
         <div className="text-center py-12 glass-panel rounded-2xl">
-          <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white">No ads found</h3>
           <p className="text-gray-400 mt-1">Try adjusting your search terms or selecting a different country.</p>
         </div>

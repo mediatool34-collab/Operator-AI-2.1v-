@@ -3,7 +3,6 @@ import { ActivitySquare, Globe, Link2, Search, Target, Users, LayoutDashboard, C
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { analyzeWithGemini } from '../lib/gemini';
-import { CRO_AND_AOV_INTELLIGENCE_DIRECTIVE } from '../lib/operatorDirectives';
 import { usePersistedState } from '../hooks/usePersistedState';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -96,7 +95,7 @@ export function SocialIntelligenceHub() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(typeof process !== 'undefined' && process?.env?.VITE_FIRECRAWL_API_KEY) || import.meta.env.VITE_FIRECRAWL_API_KEY || ''}`
+            'Authorization': `Bearer ${process.env.VITE_FIRECRAWL_API_KEY || ''}`
           },
           body: JSON.stringify({ url: profileUrl, options: { timeout: 45000 } })
         });
@@ -121,8 +120,6 @@ export function SocialIntelligenceHub() {
       ${sharedBudgetContext ? `BUDGET CONTEXT: ${JSON.stringify(sharedBudgetContext)}` : ''}
       ${sharedFunnelContext ? `PRE-FUNNEL CONTEXT: ${JSON.stringify(sharedFunnelContext)}` : ''}
       ${metaConnected && metaCampaigns.length > 0 ? `CONNECTED OWNER META ADS CONTEXT (Deep Analytics Mode - Use this real performance data to suggest what to tweak, pause, or run): ${JSON.stringify(metaCampaigns)}` : 'MODE: PUBLIC COMPETITOR MODE (Scraping only, no private insights available)'}
-
-      ${CRO_AND_AOV_INTELLIGENCE_DIRECTIVE}
 
       INSTRUCTIONS (CRITICAL - FOLLOW EXACTLY):
       1. FIRST, automatically detect: platform type (TikTok, Instagram, YouTube, LinkedIn, X, Facebook, etc.), niche, business category, audience style.
@@ -241,7 +238,7 @@ export function SocialIntelligenceHub() {
         "flex items-center gap-2 px-6 py-4 font-bold text-sm transition-all whitespace-nowrap border-b-2",
         activeTab === id 
           ? "border-emerald-500 text-emerald-400 bg-emerald-500/10" 
-          : "border-transparent text-muted-foreground hover:text-muted-foreground hover:bg-white/5"
+          : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5"
       )}
     >
       {icon}
@@ -250,7 +247,7 @@ export function SocialIntelligenceHub() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-foreground p-8">
+    <div className="min-h-screen bg-[#0B0F19] text-white p-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
         {/* Header */}
         <div>
@@ -258,7 +255,7 @@ export function SocialIntelligenceHub() {
             <ActivitySquare className="w-8 h-8 text-emerald-500" />
             Social Intelligence Hub
           </h1>
-          <p className="text-muted-foreground m-2 mt-4 max-w-2xl bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-sm leading-relaxed">
+          <p className="text-gray-400 m-2 mt-4 max-w-2xl bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-sm leading-relaxed">
             Full AI-powered social growth + competitive intelligence + media buying strategy engine.
           </p>
         </div>
@@ -325,7 +322,7 @@ export function SocialIntelligenceHub() {
                       Back to Public Mode
                     </button>
                     {!metaConnected ? (
-                      <button onClick={() => window.location.href = `/api/meta/connect?redirectUri=${encodeURIComponent(window.location.origin + '/api/meta/callback')}`} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all text-sm flex items-center gap-2">
+                      <button onClick={() => window.location.href = '/api/meta/connect'} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all text-sm flex items-center gap-2">
                         <Link2 className="w-5 h-5" /> Connect Meta Ads
                       </button>
                     ) : (
@@ -404,7 +401,7 @@ export function SocialIntelligenceHub() {
                       <Link2 className="w-12 h-12 text-gray-500 mb-4" />
                       <p className="text-lg text-gray-300 font-bold mb-2">No platforms connected</p>
                       <p className="text-sm text-gray-500 mb-6">Connect Meta to enable live campaign control and real-time ROAS intelligence.</p>
-                      <button onClick={() => window.location.href = `/api/meta/connect?redirectUri=${encodeURIComponent(window.location.origin + '/api/meta/callback')}`} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2">
+                      <button onClick={() => window.location.href = '/api/meta/connect'} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl border border-blue-400/30 shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2">
                         <Link2 className="w-5 h-5" /> Connect Meta Account
                       </button>
                     </div>

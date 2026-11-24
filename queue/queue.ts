@@ -53,17 +53,10 @@ if (isRedisAvailable) {
   });
 
   queueInstance.on('error', (err: any) => {
-    if (err.message && (err.message.includes('max requests limit exceeded') || err.message.includes('Connection is closed'))) {
-       return;
-    }
     console.error('[Queue Instance] Error:', err.message);
   });
 
-  connection.on('error', (err: any) => {
-    if (err.message && (err.message.includes('max requests limit exceeded') || err.message.includes('Connection is closed'))) {
-      if (err.message.includes('max requests limit exceeded')) connection?.disconnect();
-      return;
-    }
+  connection.on('error', (err) => {
     console.error('[Queue] Redis Connection Error:', err.message);
   });
 }

@@ -12,8 +12,8 @@ const CustomTooltip = ({ active, payload, label, dataKey }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-[#111827] border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-md">
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-lg font-bold text-foreground">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-lg font-bold text-white">
           {dataKey === 'roas' ? `${payload[0].value.toFixed(2)}x` : 
            dataKey === 'spend' || dataKey === 'revenue' ? `$${payload[0].value.toLocaleString()}` : 
            payload[0].value}
@@ -34,8 +34,8 @@ export function PerformanceChart({ data, type = 'area', dataKey, color = '#3b82f
   }
 
   return (
-    <div className="w-full h-full min-h-[200px]">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+    <div className="w-full h-full min-h-[180px]">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
         {type === 'area' ? (
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>

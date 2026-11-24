@@ -14,11 +14,11 @@ export function PageUnderConstruction({ title }: { title: string }) {
         </div>
       </div>
       
-      <h2 className="text-3xl font-bold text-foreground mb-4 tracking-tight">
+      <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">
         {title} <span className="text-blue-400">Under Construction</span>
       </h2>
       
-      <p className="text-muted-foreground max-w-md mx-auto leading-relaxed mb-8">
+      <p className="text-gray-400 max-w-md mx-auto leading-relaxed mb-8">
         Our AI engineers are currently training the models for this module. 
         Check back soon for advanced intelligence and automated optimizations.
       </p>

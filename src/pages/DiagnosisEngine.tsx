@@ -194,8 +194,8 @@ export function DiagnosisEngine() {
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 max-w-md w-full">
           <Search className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Not Connected</h2>
-          <p className="text-muted-foreground mb-6">Select an account to run the Diagnosis Engine.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Not Connected</h2>
+          <p className="text-gray-500 mb-6">Select an account to run the Diagnosis Engine.</p>
         </div>
       </div>
     );
@@ -205,8 +205,8 @@ export function DiagnosisEngine() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Funnel Mapping & Diagnostics</h1>
-          <p className="text-muted-foreground text-sm mt-1">Autonomous tracking of creative performance from "First Impression" to "Final Conversion".</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Funnel Mapping & Diagnostics</h1>
+          <p className="text-gray-400 text-sm mt-1">Autonomous tracking of creative performance from "First Impression" to "Final Conversion".</p>
         </div>
       </div>
 
@@ -288,7 +288,7 @@ export function DiagnosisEngine() {
                       <Activity className="w-4 h-4 text-gray-400" />
                       Explanation
                     </h4>
-                    <p className="text-muted-foreground text-sm">{diagnosis.explanation}</p>
+                    <p className="text-gray-600 text-sm">{diagnosis.explanation}</p>
                   </div>
                 </div>
 

@@ -1,101 +1,96 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, LogOut, CheckCircle2, XCircle } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Settings as SettingsIcon, LogOut, CheckCircle2, XCircle, AlertCircle, Link2, ArrowRight } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { logOut } from '../lib/firebase';
-import { handleFirestoreError } from '../lib/firebase';
+import { useFilters, SupportedPlatform } from '../lib/FilterContext';
 
 export function Settings() {
   const { user } = useAuth();
-  const [metaConnected, setMetaConnected] = useState(false);
-  const [googleConnected, setGoogleConnected] = useState(false);
-  const [tiktokConnected, setTiktokConnected] = useState(false);
-  const [snapchatConnected, setSnapchatConnected] = useState(false);
+  const {
+    connectedPlatformsStatus,
+    setPlatformToken,
+    refreshConnections,
+    refreshMonitoring,
+  } = useFilters();
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data?.platform && event.data?.token) {
         if (user) {
           try {
-            localStorage.setItem(`${event.data.platform}_token`, event.data.token);
-            if (event.data.platform === 'meta') setMetaConnected(true);
-            if (event.data.platform === 'google') setGoogleConnected(true);
-            if (event.data.platform === 'tiktok') setTiktokConnected(true);
-            if (event.data.platform === 'snapchat') setSnapchatConnected(true);
+            const plat = event.data.platform as SupportedPlatform;
+            setPlatformToken(plat, event.data.token);
+            await fetch('/api/connections/platform', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-user-id': user.uid },
+              body: JSON.stringify({
+                platform: plat,
+                accessToken: event.data.token,
+                refreshToken: event.data.refreshToken || null,
+              }),
+            });
+            await refreshConnections();
+            await refreshMonitoring();
           } catch (error: any) {
-            console.error(`Error saving ${event.data.platform} token:`, error);
+            setErrorMsg(`Error saving ${event.data.platform} token: ${error.message}`);
           }
         }
       } else if (event.data?.type === 'OAUTH_AUTH_ERROR') {
-        alert('Authentication Error: ' + (event.data.error || 'Unknown error occurred'));
+        setErrorMsg('Authentication Error: ' + (event.data.error || 'Unknown error occurred'));
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [user]);
+  }, [user, setPlatformToken, refreshConnections, refreshMonitoring]);
 
   useEffect(() => {
-    if (user) {
-      const fetchTokens = async () => {
-        try {
-          if (localStorage.getItem('meta_token')) setMetaConnected(true);
-          if (localStorage.getItem('google_token')) setGoogleConnected(true);
-          if (localStorage.getItem('tiktok_token')) setTiktokConnected(true);
-          if (localStorage.getItem('snapchat_token')) setSnapchatConnected(true);
-        } catch (err: any) {
-          console.error('Error fetching tokens:', err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchTokens();
-    } else {
-      setLoading(false);
-    }
+    setLoading(false);
   }, [user]);
 
-  const handleDisconnect = async (platform: string) => {
+  const handleDisconnect = async (platform: SupportedPlatform) => {
     if (!user) return;
+    setErrorMsg(null);
     try {
-      localStorage.removeItem(`${platform}_token`);
-      if (platform === 'meta') setMetaConnected(false);
-      if (platform === 'google') setGoogleConnected(false);
-      if (platform === 'tiktok') setTiktokConnected(false);
-      if (platform === 'snapchat') setSnapchatConnected(false);
-    } catch (error) {
-      console.error(`Error disconnecting ${platform}:`, error);
+      setPlatformToken(platform, null);
+      await fetch(`/api/connections/platform/${platform}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': user.uid },
+      });
+      await refreshConnections();
+      await refreshMonitoring();
+    } catch (error: any) {
+      setErrorMsg(`Error disconnecting ${platform}: ${error.message}`);
     }
   };
 
-  const handleConnect = async (platform: string) => {
+  const handleConnect = async (platform: SupportedPlatform) => {
+    setErrorMsg(null);
     try {
-      const clientRedirectUri = `${window.location.origin}/api/auth/callback/${platform}`;
-      const response = await fetch(`/api/auth/connect/${platform}?uid=${user?.uid}&redirectUri=${encodeURIComponent(clientRedirectUri)}&json=true`);
+      const response = await fetch(`/api/auth/connect/${platform}?uid=${user?.uid}&json=true`);
       const contentType = response.headers.get('content-type');
-      
+
       if (!response.ok) {
         const text = await response.text();
-        console.error(`Connect Error [${response.status}]:`, text);
+        let parsedErr = `Failed to connect ${platform} (Status: ${response.status})`;
         try {
           const json = JSON.parse(text);
-          throw new Error(json.error || text);
-        } catch (e) {
-          throw new Error(`Failed to connect ${platform} (Status: ${response.status})`);
-        }
+          parsedErr = json.error || parsedErr;
+        } catch {}
+        throw new Error(parsedErr);
       }
 
       if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error(`Invalid Content-Type [${contentType}]:`, text);
-        throw new Error(`Server returned non-JSON response for ${platform}. Check console for details.`);
+        throw new Error(`Server returned non-JSON response for ${platform}.`);
       }
 
       const { url } = await response.json();
       window.open(url, 'oauth_popup', 'width=600,height=700');
     } catch (error: any) {
-      console.error(`Error connecting ${platform}:`, error);
-      alert('Error: ' + error.message);
+      setErrorMsg(`${error.message}. You can also link ${platform.toUpperCase()} manually via Account ID / Token inside the Connections Hub.`);
     }
   };
 
@@ -109,9 +104,32 @@ export function Settings() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Platform Linkage (Multi-Account Scaling)</h1>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+          <SettingsIcon className="w-6 h-6 text-blue-400" />
+          Platform Linkage & Workspace Settings
+        </h1>
+        <NavLink
+          to="/connections"
+          className="px-4 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 hover:bg-blue-600/30 text-xs font-bold flex items-center gap-2 transition-all"
+        >
+          <Link2 className="w-4 h-4" />
+          Open Full Connections & Stores Hub
+          <ArrowRight className="w-3.5 h-3.5" />
+        </NavLink>
       </div>
+
+      {errorMsg && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-red-400" />
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg(null)} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="glass-panel rounded-2xl overflow-hidden">
         <div className="p-6 border-b border-white/10">
@@ -120,7 +138,7 @@ export function Settings() {
             {user?.photoURL ? (
               <img src={user.photoURL} alt="Profile" className="w-16 h-16 rounded-full border-2 border-white/10" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground text-xl font-bold">
+              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 text-xl font-bold">
                 {user?.email?.[0].toUpperCase()}
               </div>
             )}
@@ -133,71 +151,38 @@ export function Settings() {
 
         <div className="p-6 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white mb-4">Connected Platforms</h2>
-          
+
           <div className="space-y-4">
             {/* Meta Ads */}
-            <div className="flex flex-col gap-3 p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">f</div>
-                  <div>
-                    <div className="font-medium text-white">Meta Ads</div>
-                    <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
-                      {metaConnected ? (
-                        <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
-                      ) : (
-                        <><XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Not linked</>
-                      )}
-                    </div>
+            <div className="flex items-center justify-between p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">f</div>
+                <div>
+                  <div className="font-medium text-white">Meta Ads</div>
+                  <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
+                    {connectedPlatformsStatus.meta ? (
+                      <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
+                    ) : (
+                      <><XCircle className="w-3.5 h-3.5 text-gray-500" /> Not linked</>
+                    )}
                   </div>
                 </div>
-                {metaConnected ? (
-                  <button onClick={() => handleDisconnect('meta')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
-                    Disconnect
-                  </button>
-                ) : (
-                  <button onClick={() => handleConnect('meta')} className="px-4 py-2 text-sm font-medium bg-[#1877F2] text-white hover:bg-[#1877F2]/90 rounded-lg shadow-[0_0_10px_rgba(24,119,242,0.3)] transition-all duration-200">
-                    Connect
-                  </button>
-                )}
               </div>
-              {!metaConnected && (
-                <div className="flex gap-2 items-center w-full mt-2 border-t border-white/5 pt-3">
-                  <input
-                    type="password"
-                    placeholder="Or paste Access Token manually..."
-                    className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#1877F2]/50"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const val = e.currentTarget.value.trim();
-                        if (val) {
-                          localStorage.setItem('meta_token', val);
-                          setMetaConnected(true);
-                        }
-                      }
-                    }}
-                  />
-                  <button 
-                    className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 rounded-lg text-white/70 transition-colors"
-                    onClick={(e) => {
-                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                      const val = input.value.trim();
-                      if (val) {
-                        localStorage.setItem('meta_token', val);
-                        setMetaConnected(true);
-                      }
-                    }}
-                  >
-                    Save
-                  </button>
-                </div>
+              {connectedPlatformsStatus.meta ? (
+                <button onClick={() => handleDisconnect('meta')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
+                  Disconnect
+                </button>
+              ) : (
+                <button onClick={() => handleConnect('meta')} className="px-4 py-2 text-sm font-medium bg-[#1877F2] text-white hover:bg-[#1877F2]/90 rounded-lg shadow-[0_0_10px_rgba(24,119,242,0.3)] transition-all duration-200">
+                  Connect
+                </button>
               )}
             </div>
 
             {/* Google Ads */}
             <div className="flex items-center justify-between p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center font-bold text-xl text-foreground overflow-hidden">
+                <div className="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center font-bold text-xl text-gray-900 overflow-hidden">
                   <svg viewBox="0 0 24 24" className="w-6 h-6">
                     <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.273 0 3.191 2.727 1.136 6.709l4.13 3.056Z" />
                     <path fill="#FBBC05" d="M1.136 6.71c-.345 1.054-.536 2.181-.536 3.354 0 1.173.191 2.3.545 3.345l4.137-3.219-4.146-3.48Z" />
@@ -208,7 +193,7 @@ export function Settings() {
                 <div>
                   <div className="font-medium text-white">Google Ads</div>
                   <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
-                    {googleConnected ? (
+                    {connectedPlatformsStatus.google ? (
                       <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
                     ) : (
                       <><XCircle className="w-3.5 h-3.5 text-gray-500" /> Not linked</>
@@ -216,7 +201,7 @@ export function Settings() {
                   </div>
                 </div>
               </div>
-              {googleConnected ? (
+              {connectedPlatformsStatus.google ? (
                 <button onClick={() => handleDisconnect('google')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
                   Disconnect
                 </button>
@@ -238,7 +223,7 @@ export function Settings() {
                 <div>
                   <div className="font-medium text-white">TikTok Ads</div>
                   <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
-                    {tiktokConnected ? (
+                    {connectedPlatformsStatus.tiktok ? (
                       <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
                     ) : (
                       <><XCircle className="w-3.5 h-3.5 text-gray-500" /> Not linked</>
@@ -246,7 +231,7 @@ export function Settings() {
                   </div>
                 </div>
               </div>
-              {tiktokConnected ? (
+              {connectedPlatformsStatus.tiktok ? (
                 <button onClick={() => handleDisconnect('tiktok')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
                   Disconnect
                 </button>
@@ -261,15 +246,15 @@ export function Settings() {
             <div className="flex items-center justify-between p-4 bg-[#111827]/50 border border-white/5 rounded-xl shadow-inner">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#FFFC00] rounded-lg flex items-center justify-center text-black font-bold text-xl shadow-md">
-                   <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
-                     <path d="M12 2.5a.75.75 0 0 1 .75.75c0 .34-.23.62-.53.71l-.1.01c-3.13.29-5.63 2.79-5.92 5.92-.01.07-.02.13-.02.21a.75.75 0 0 1-1.5 0c0-.13.01-.26.03-.39.4-3.83 3.42-6.85 7.25-7.25.13-.02.26-.03.39-.03a.75.75 0 0 1 .75.75ZM12 21.5c-3.13-.29-5.63-2.79-5.92-5.92-.01-.07-.02-.13-.02-.21a.75.75 0 0 0-1.5 0c0 .13.01.26.03.39.4 3.83 3.42 6.85 7.25 7.25.13.02.26.03.39.03a.75.75 0 0 0 0-1.5c-.08 0-.14-.01-.21-.02ZM21.5 12c-.29 3.13-2.79 5.63-5.92 5.92-.07.01-.13.02-.21.02a.75.75 0 0 0 0 1.5c.13 0 .26-.01.39-.03a7.513 7.513 0 0 0 7.25-7.25c.02-.13.03-.26.03-.39a.75.75 0 0 0-1.5 0c0 .08-.01.14-.02.21ZM21.5 12c-.29-3.13-2.79-5.63-5.92-5.92-.07-.01-.13-.02-.21-.02a.75.75 0 0 1 0-1.5c.13 0 .26.01.39.03a7.513 7.513 0 0 1 7.25 7.25c.02.13.03.26.03.39a.75.75 0 0 1-1.5 0c0-.08-.01-.14-.02-.21Z" />
-                     <path d="M12 16.5c-2.48 0-4.5-2.02-4.5-4.5s2.02-4.5 4.5-4.5 4.5 2.02 4.5 4.5-2.02 4.5-4.5 4.5Zm0-7.5c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3Z" />
-                   </svg>
+                  <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                    <path d="M12 2.5a.75.75 0 0 1 .75.75c0 .34-.23.62-.53.71l-.1.01c-3.13.29-5.63 2.79-5.92 5.92-.01.07-.02.13-.02.21a.75.75 0 0 1-1.5 0c0-.13.01-.26.03-.39.4-3.83 3.42-6.85 7.25-7.25.13-.02.26-.03.39-.03a.75.75 0 0 1 .75.75ZM12 21.5c-3.13-.29-5.63-2.79-5.92-5.92-.01-.07-.02-.13-.02-.21a.75.75 0 0 0-1.5 0c0 .13.01.26.03.39.4 3.83 3.42 6.85 7.25 7.25.13.02.26.03.39.03a.75.75 0 0 0 0-1.5c-.08 0-.14-.01-.21-.02ZM21.5 12c-.29 3.13-2.79 5.63-5.92 5.92-.07.01-.13.02-.21.02a.75.75 0 0 0 0 1.5c.13 0 .26-.01.39-.03a7.513 7.513 0 0 0 7.25-7.25c.02-.13.03-.26.03-.39a.75.75 0 0 0-1.5 0c0 .08-.01.14-.02.21ZM21.5 12c-.29-3.13-2.79-5.63-5.92-5.92-.07-.01-.13-.02-.21-.02a.75.75 0 0 1 0-1.5c.13 0 .26.01.39.03a7.513 7.513 0 0 1 7.25 7.25c.02.13.03.26.03.39a.75.75 0 0 1-1.5 0c0-.08-.01-.14-.02-.21Z" />
+                    <path d="M12 16.5c-2.48 0-4.5-2.02-4.5-4.5s2.02-4.5 4.5-4.5 4.5 2.02 4.5 4.5-2.02 4.5-4.5 4.5Zm0-7.5c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3Z" />
+                  </svg>
                 </div>
                 <div>
                   <div className="font-medium text-white">Snapchat Ads</div>
                   <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
-                    {snapchatConnected ? (
+                    {connectedPlatformsStatus.snapchat ? (
                       <><CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> Linked</>
                     ) : (
                       <><XCircle className="w-3.5 h-3.5 text-gray-500" /> Not linked</>
@@ -277,7 +262,7 @@ export function Settings() {
                   </div>
                 </div>
               </div>
-              {snapchatConnected ? (
+              {connectedPlatformsStatus.snapchat ? (
                 <button onClick={() => handleDisconnect('snapchat')} className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all duration-200">
                   Disconnect
                 </button>
@@ -291,7 +276,7 @@ export function Settings() {
         </div>
 
         <div className="p-6 bg-[#0B0F19]/50">
-          <button 
+          <button
             onClick={logOut}
             className="flex items-center gap-2 text-red-400 hover:text-red-300 font-medium px-4 py-2 rounded-lg hover:bg-red-500/10 transition-colors -ml-4"
           >

@@ -215,8 +215,8 @@ Provide the output in Markdown format with the following sections:
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <Activity className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Not Connected</h2>
-          <p className="text-muted-foreground mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to view tests.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Not Connected</h2>
+          <p className="text-gray-400 mb-6">Connect your {platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'TikTok'} account to view tests.</p>
         </div>
       </div>
     );
@@ -258,7 +258,7 @@ Provide the output in Markdown format with the following sections:
           
           {tests.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center glass-panel rounded-2xl">
-              <FlaskConical className="w-12 h-12 text-muted-foreground mb-4" />
+              <FlaskConical className="w-12 h-12 text-gray-600 mb-4" />
               <h2 className="text-xl font-bold text-white mb-2">No Active Tests Detected</h2>
               <p className="text-gray-400 mb-6">We couldn't detect any active A/B tests (multiple ads in an adset, or multiple adsets in a campaign) with spend in the selected date range.</p>
             </div>
@@ -278,7 +278,7 @@ Provide the output in Markdown format with the following sections:
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-[#0B0F19] border border-white/10 text-muted-foreground text-sm font-bold z-10 shadow-lg">
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-[#0B0F19] border border-white/10 text-gray-500 text-sm font-bold z-10 shadow-lg">
                       VS
                     </div>
                     
@@ -329,7 +329,7 @@ Provide the output in Markdown format with the following sections:
             </div>
             <div className="p-6">
               {testingPlan ? (
-                <div className="prose prose-sm prose-invert max-w-none text-muted-foreground" dir="auto">
+                <div className="prose prose-sm prose-invert max-w-none text-gray-300" dir="auto">
                   <ReactMarkdown>{testingPlan}</ReactMarkdown>
                 </div>
               ) : (

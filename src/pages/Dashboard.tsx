@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/auth';
 import { signInWithGoogle } from '../lib/firebase';
-import { AlertCircle, DollarSign, MousePointerClick, Users, Target, Activity, Zap, TrendingUp, PauseCircle, X, CheckCircle2, ChevronRight, BrainCircuit, ActivitySquare, Shield } from 'lucide-react';
+import { AlertCircle, DollarSign, MousePointerClick, Users, Target, Activity, Zap, TrendingUp, PauseCircle, X, CheckCircle2, ChevronRight, BrainCircuit, ActivitySquare, Shield, ShoppingBag, Sparkles, Crosshair } from 'lucide-react';
+import { ExportButton } from '../components/ExportButton';
 import { useFilters } from '../lib/FilterContext';
 import { CampaignTree } from '../components/CampaignTree';
 import { InsightPanel } from '../components/InsightPanel';
@@ -19,8 +20,9 @@ import { analyzeWithGemini } from '../lib/gemini';
 
 export function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { provider: aiProvider } = useAiSettings();
-  const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, platform, metaSubPlatform } = useFilters();
+  const { selectedAccountId, datePreset, metaToken, googleToken, tiktokToken, snapchatToken, platform, metaSubPlatform, adAccounts, sendTargetToPreFunnel } = useFilters();
   
   const [campaigns, setCampaigns] = usePersistedState<any[]>('dashboard_campaigns', []);
   const [adsets, setAdsets] = usePersistedState<any[]>('dashboard_adsets', []);
@@ -53,8 +55,9 @@ export function Dashboard() {
     if (platform === 'meta') return metaToken;
     if (platform === 'google') return googleToken;
     if (platform === 'tiktok') return tiktokToken;
+    if (platform === 'snapchat') return snapchatToken;
     return null;
-  }, [platform, metaToken, googleToken, tiktokToken]);
+  }, [platform, metaToken, googleToken, tiktokToken, snapchatToken]);
 
   // Simulate auto-optimization when enabled
   useEffect(() => {
@@ -72,7 +75,7 @@ export function Dashboard() {
           }))
         };
 
-        const res = await fetch(`/api/analysis?accountId=${selectedAccountId}&platform=${platform}`, {
+        const res = await fetch(`/api/evaluate-performance?accountId=${selectedAccountId}&platform=${platform}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -220,7 +223,7 @@ export function Dashboard() {
                 metrics: insightData.insights.find((i: any) => i.id === c.id)?.metrics || null
               }))
             };
-            const res = await fetch(`/api/analysis?accountId=${selectedAccountId}&platform=${platform}`, {
+            const res = await fetch(`/api/evaluate-performance?accountId=${selectedAccountId}&platform=${platform}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -254,7 +257,7 @@ export function Dashboard() {
     };
 
     fetchAll();
-  }, [selectedAccountId, platform, metaSubPlatform, datePreset, metaToken, googleToken, tiktokToken, getToken, user, setCampaigns, setAdsets, setAds, setCreatives, setInsights, setGlobalAnalysis]);
+  }, [selectedAccountId, platform, metaSubPlatform, datePreset, metaToken, googleToken, tiktokToken, snapchatToken, getToken, user, setCampaigns, setAdsets, setAds, setCreatives, setInsights, setGlobalAnalysis]);
 
   useEffect(() => {
     if (!selectedItem || !user) return;
@@ -274,7 +277,7 @@ export function Dashboard() {
           }]
         };
 
-        const res = await fetch(`/api/analysis?accountId=${selectedAccountId}&platform=${platform}`, {
+        const res = await fetch(`/api/evaluate-performance?accountId=${selectedAccountId}&platform=${platform}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -316,8 +319,10 @@ export function Dashboard() {
       };
 
       if (itemAnalysis.decision === 'SCALE') {
-        const currentBudget = itemData.daily_budget || 50;
-        payload.dailyBudget = currentBudget * 1.2;
+        const rawBudget = Number(itemData.daily_budget || itemData.lifetime_budget || 0);
+        const majorBudget = platform === 'meta' && rawBudget > 0 ? rawBudget / 100 : rawBudget || 50;
+        payload.dailyBudget = majorBudget * 1.2;
+        payload.multiplier = 1.2;
       } else if (itemAnalysis.decision === 'KILL') {
         payload.status = 'PAUSED';
       } else if (itemAnalysis.decision === 'OPTIMIZE') {
@@ -454,31 +459,50 @@ export function Dashboard() {
           </p>
           
           <NavLink 
-            to="/settings"
+            to="/connections"
             className="glass-button w-full sm:w-auto inline-flex items-center justify-center gap-2"
           >
             <Target className="w-4 h-4" />
             Connect Account
           </NavLink>
+
+          <div className="mt-8 p-5 rounded-2xl bg-gradient-to-r from-blue-900/40 via-indigo-900/40 to-purple-900/40 border border-blue-500/40 text-right" dir="rtl">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-blue-400" />
+              <h3 className="font-bold text-white text-base">استراتيجية Explore Team (B2B السعودية) جاهزة!</h3>
+            </div>
+            <p className="text-xs text-blue-200/80 mb-4 leading-relaxed">
+              تم تجهيز الخطة الاستراتيجية الكاملة التي تغطي المهام الوظيفية السبع لاختصاصي النمو في السوق السعودي (تحليل المنافسين، ومسار الـ 3 مراحل، وحسابات الـ CPA، وخطة الـ 90 يوماً).
+            </p>
+            <NavLink 
+              to="/pre-funnel"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-500/20 transition-all inline-flex items-center gap-2"
+            >
+              <span>فتح استراتيجية Pre-Funnel الآن</span>
+              <ChevronRight className="w-4 h-4 rotate-180" />
+            </NavLink>
+          </div>
         </div>
       </div>
     );
   }
 
   // Calculate overall metrics from insights
-  let totalSpend = 0, totalClicks = 0, totalImpressions = 0, totalConversions = 0, totalConversionValue = 0;
+  let totalSpend = 0, totalClicks = 0, totalImpressions = 0, totalReach = 0, totalConversions = 0, totalConversionValue = 0;
   
   insights.forEach(i => {
     if (i.metrics) {
       totalSpend += i.metrics.spend || 0;
       totalClicks += i.metrics.clicks || 0;
       totalImpressions += i.metrics.impressions || 0;
+      totalReach += i.metrics.reach || 0;
       totalConversions += i.metrics.conversions || 0;
       totalConversionValue += i.metrics.conversionValue || 0;
     }
   });
 
   const overallCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
+  const overallCpc = totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0.00';
   const overallCpa = totalConversions > 0 ? (totalSpend / totalConversions).toFixed(2) : '0.00';
   const overallRoas = totalSpend > 0 ? (totalConversionValue / totalSpend).toFixed(2) : '0.00';
 
@@ -529,10 +553,26 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="h-full flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white tracking-tight">DashBoard</h1>
-        <div className="flex items-center gap-3">
+    <div className="space-y-6 pb-12">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Overview — Live Performance</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => {
+              const curAcc = adAccounts.find(a => a.id === selectedAccountId);
+              sendTargetToPreFunnel({
+                type: 'account',
+                platform: platform as any,
+                accountId: selectedAccountId || 'all',
+                accountName: curAcc?.name || `${platform.toUpperCase()} Portfolio`,
+              });
+              navigate('/pre-funnel');
+            }}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-xs font-bold text-blue-300 transition-all"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            Analyze in Pre-Funnel Intel
+          </button>
           {isMock && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-[10px] font-bold text-yellow-500 uppercase tracking-wider">
               <AlertCircle className="w-3 h-3" />
@@ -556,7 +596,7 @@ export function Dashboard() {
       </div>
 
       {/* Rapid Diagnosis Section (Core Prototype Feature) */}
-      <div className="glass-panel p-8 rounded-[2rem] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 to-transparent shrink-0 relative overflow-hidden group">
+      <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 to-transparent relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
           <BrainCircuit className="w-32 h-32 text-indigo-400 rotate-12" />
         </div>
@@ -626,19 +666,63 @@ export function Dashboard() {
       </div>
 
       {/* Top KPI Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
-        <KpiCard title="Total Spend" value={`$${totalSpend.toFixed(2)}`} icon={DollarSign} trend={spendTrend} />
-        <KpiCard title="Avg. CPA" value={overallCpa !== '0.00' ? `$${overallCpa}` : (totalSpend > 0 ? '$0.00' : '-')} icon={Target} trend={cpaTrend} />
-        <KpiCard title="Avg. ROAS" value={overallRoas !== '0.00' ? `${overallRoas}x` : (totalSpend > 0 ? '0.00x' : '-')} icon={MousePointerClick} trend={roasTrend} />
-        <KpiCard title="Avg. CTR" value={`${overallCtr}%`} icon={Users} trend={ctrTrend} />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <KpiCard
+          title="Total Spend"
+          value={`$${totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          icon={DollarSign}
+          trend={spendTrend}
+        />
+        <KpiCard
+          title="Revenue"
+          value={totalConversionValue > 0 ? `$${totalConversionValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00'}
+          subtext={totalConversionValue === 0 && totalSpend > 0 ? 'Lead / Traffic focus' : undefined}
+          icon={Activity}
+        />
+        <KpiCard
+          title="ROAS"
+          value={totalConversionValue > 0 && totalSpend > 0 ? `${overallRoas}x` : '0.00x'}
+          subtext={totalConversionValue > 0 ? `MER ${(parseFloat(overallRoas || '0') * 0.8).toFixed(2)}x` : undefined}
+          icon={Target}
+          trend={roasTrend}
+        />
+        <KpiCard
+          title="Results / Leads"
+          value={totalConversions.toLocaleString()}
+          subtext={totalClicks > 0 ? `${((totalConversions / totalClicks) * 100).toFixed(2)}% CVR` : undefined}
+          icon={ShoppingBag}
+        />
+        <KpiCard
+          title="Cost per Result"
+          value={totalConversions > 0 ? `$${overallCpa}` : '—'}
+          icon={Target}
+          trend={cpaTrend}
+        />
+        <KpiCard
+          title="Impressions"
+          value={totalImpressions.toLocaleString()}
+          icon={Activity}
+        />
+        <KpiCard
+          title="Reach"
+          value={totalReach > 0 ? totalReach.toLocaleString() : '—'}
+          icon={Users}
+        />
+        <KpiCard
+          title="Link Clicks"
+          value={totalClicks.toLocaleString()}
+          subtext={`CTR ${overallCtr}% • CPC $${overallCpc}`}
+          icon={MousePointerClick}
+          trend={ctrTrend}
+        />
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left Sidebar: Campaign Tree & Activity */}
-        <div className="lg:col-span-4 h-full flex flex-col gap-6 min-h-0">
-          <div className="flex-1 min-h-0">
+        {/* Left Column: Campaign Tree & Activity */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="h-[440px]">
             <CampaignTree 
               campaigns={campaigns} 
               adsets={adsets} 
@@ -649,7 +733,7 @@ export function Dashboard() {
             />
           </div>
           
-          <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-[350px] shrink-0">
+          <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-[320px]">
             <div className="p-4 border-b border-white/5 bg-[#111827]/50 flex items-center justify-between">
               <h2 className="font-bold text-white flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-400" />
@@ -663,17 +747,17 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Right Area: Insights & Charts */}
-        <div className="lg:col-span-8 h-full flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
+        {/* Right Column: Charts, Decision Engine & Audit */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
           
           {/* Performance Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-            <div className="glass-panel p-6 rounded-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Spend Trend</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Spend Trend</h3>
                 {spendTrend !== undefined && (
-                  <span className={cn("text-xs font-medium", spendTrend >= 0 ? "text-green-400" : "text-red-400")}>
-                    {spendTrend >= 0 ? '+' : ''}{spendTrend}% vs last week
+                  <span className={cn("text-[11px] font-bold", spendTrend >= 0 ? "text-green-400" : "text-red-400")}>
+                    {spendTrend >= 0 ? '+' : ''}{spendTrend}%
                   </span>
                 )}
               </div>
@@ -681,11 +765,11 @@ export function Dashboard() {
                 <PerformanceChart data={chartData} dataKey="spend" color="#3b82f6" />
               </div>
             </div>
-            <div className="glass-panel p-6 rounded-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">ROAS Performance</h3>
+            <div className="glass-panel p-5 rounded-2xl border border-white/10">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">ROAS Trend</h3>
                 {roasTrend !== undefined && (
-                  <span className={cn("text-xs font-medium", roasTrend >= 0 ? "text-blue-400" : "text-indigo-400")}>
+                  <span className={cn("text-[11px] font-bold", roasTrend >= 0 ? "text-blue-400" : "text-indigo-400")}>
                     {roasTrend >= 0 ? 'Improving' : 'Monitoring'}
                   </span>
                 )}
@@ -801,14 +885,14 @@ export function Dashboard() {
               )}
             </>
           ) : (
-            <div className="h-full flex flex-col gap-6">
-              <div className="glass-panel rounded-2xl p-10 text-center shrink-0 flex flex-col items-center justify-center min-h-[250px]">
-                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
-                  <Target className="w-8 h-8 text-blue-400" />
+            <div className="flex flex-col gap-6">
+              <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center justify-center">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-4 border border-blue-500/20">
+                  <Target className="w-6 h-6 text-blue-400" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-3">Account Overview</h2>
-                <p className="text-gray-400 max-w-md mx-auto leading-relaxed">
-                  Select a campaign, ad set, or ad from the tree to view its specific performance metrics, AI analysis, and creative assets.
+                <h2 className="text-xl font-bold text-white mb-2">Account Overview</h2>
+                <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed">
+                  Select a campaign, ad set, or ad from the Campaign Structure tree on the left to inspect granular performance, AI decisions, and creative assets.
                 </p>
               </div>
               <AccountAuditPanel 
@@ -820,6 +904,10 @@ export function Dashboard() {
                   setAnalyzingGlobal(true);
                   // Bulk fix simulation
                   await new Promise(r => setTimeout(r, 2000));
+                  
+                  const winningCampaigns = campaigns.slice(0, Math.ceil(campaigns.length * 0.2));
+                  const failingCampaigns = campaigns.slice(-Math.ceil(campaigns.length * 0.15));
+
                   const actionLog = {
                     id: Math.random().toString(36).substr(2, 9),
                     timestamp: new Date().toISOString(),
@@ -1059,26 +1147,33 @@ function AdvancedMetricsPanel({ metrics }: { metrics: any }) {
   );
 }
 
-function KpiCard({ title, value, icon: Icon, trend }: { title: string, value: string, icon: any, trend?: number }) {
+function KpiCard({ title, value, icon: Icon, trend, subtext }: { title: string, value: string, icon: any, trend?: number, subtext?: string }) {
   return (
-    <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
-      <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-colors duration-500"></div>
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <h3 className="text-sm font-medium text-gray-400">{title}</h3>
-        <div className="p-2 bg-[#1F2937] border border-white/5 rounded-xl text-blue-400 shadow-inner">
-          <Icon className="w-5 h-5" />
+    <div className="glass-panel p-4 rounded-2xl relative overflow-hidden group border border-white/10 flex flex-col justify-between gap-3">
+      <div className="absolute -right-6 -top-6 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-colors duration-500 pointer-events-none" />
+      <div className="flex items-center justify-between gap-2 relative z-10">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 truncate">{title}</h3>
+        <div className="p-1.5 bg-[#1F2937] border border-white/5 rounded-lg text-blue-400 shrink-0">
+          <Icon className="w-4 h-4" />
         </div>
       </div>
-      <div className="flex items-end justify-between relative z-10">
-        <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
-        {trend !== undefined && (
-          <div className={cn(
-            "flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-lg",
-            trend >= 0 ? "text-green-400 bg-green-400/10" : "text-red-400 bg-red-400/10"
-          )}>
-            {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingUp className="w-3 h-3 rotate-180" />}
-            {Math.abs(trend)}%
+      <div className="relative z-10 space-y-1.5">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <div className="text-xl xl:text-2xl font-black text-white tracking-tight tabular-nums truncate">
+            {value}
           </div>
+          {trend !== undefined && (
+            <div className={cn(
+              "inline-flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md shrink-0",
+              trend >= 0 ? "text-green-400 bg-green-400/10" : "text-red-400 bg-red-400/10"
+            )}>
+              {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingUp className="w-3 h-3 rotate-180" />}
+              {Math.abs(trend)}%
+            </div>
+          )}
+        </div>
+        {subtext && (
+          <div className="text-[11px] text-gray-500 font-medium truncate">{subtext}</div>
         )}
       </div>
     </div>

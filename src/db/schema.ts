@@ -160,5 +160,25 @@ export const connectedAccounts = pgTable('connected_accounts', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+export const connectedStores = pgTable('connected_stores', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  workspaceId: text('workspace_id').references(() => workspaces.id),
+  name: text('name').notNull(),
+  storeUrl: text('store_url').notNull(),
+  platform: text('platform').notNull(), // 'salla' | 'zid' | 'shopify' | 'woocommerce' | 'custom'
+  currency: text('currency').default('SAR (ر.س)'),
+  monthlyRevenue: doublePrecision('monthly_revenue').default(0),
+  targetRoas: doublePrecision('target_roas').default(3.0),
+  targetCpa: doublePrecision('target_cpa').default(50),
+  linkedAdAccountId: text('linked_ad_account_id'),
+  linkedPlatform: text('linked_platform'),
+  status: text('status').default('ACTIVE'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+
 
 

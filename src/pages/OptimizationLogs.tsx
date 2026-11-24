@@ -70,8 +70,8 @@ export function OptimizationLogs() {
       <div className="flex flex-col items-center justify-center h-full text-center">
         <div className="glass-panel p-8 rounded-2xl max-w-md w-full">
           <ActivitySquare className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Not Connected</h2>
-          <p className="text-muted-foreground mb-6">Select an account to view optimization logs.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Not Connected</h2>
+          <p className="text-gray-400 mb-6">Select an account to view optimization logs.</p>
         </div>
       </div>
     );
@@ -89,7 +89,7 @@ export function OptimizationLogs() {
       <div className="glass-panel rounded-2xl overflow-hidden">
         {logs.length === 0 ? (
           <div className="p-12 text-center">
-            <ActivitySquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <ActivitySquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-1">No Logs Found</h3>
             <p className="text-gray-400">The auto-optimization system hasn't taken any actions yet. Enable it on the Dashboard.</p>
           </div>
@@ -111,7 +111,7 @@ export function OptimizationLogs() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <h3 className="text-lg font-bold text-foreground">{log.campaignName}</h3>
+                        <h3 className="text-lg font-bold text-gray-200">{log.campaignName}</h3>
                         <span className={cn(
                           "px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider border",
                           log.status === 'SUCCESS' ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"
@@ -122,7 +122,7 @@ export function OptimizationLogs() {
                       <p className="text-sm font-medium text-gray-400 mb-1">
                         Action: <span className="text-gray-200">{log.details}</span>
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-gray-500">
                         Reason: {log.reason}
                       </p>
                     </div>

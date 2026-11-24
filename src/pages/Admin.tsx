@@ -43,9 +43,9 @@ export function Admin() {
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Shield className="w-6 h-6 text-blue-400" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">Super-Admin Command Center</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Super-Admin Command Center</h1>
           </div>
-          <p className="text-muted-foreground">Global orchestration and system-wide visibility layer.</p>
+          <p className="text-gray-400">Global orchestration and system-wide visibility layer.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
@@ -76,7 +76,7 @@ export function Admin() {
               </div>
             </div>
             <div className="text-2xl font-bold text-white mb-1">{metric.value}</div>
-            <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">{metric.label}</div>
+            <div className="text-xs text-gray-500 uppercase tracking-widest font-bold">{metric.label}</div>
             <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
           </motion.div>
         ))}
@@ -115,7 +115,7 @@ export function Admin() {
                   <div className="flex items-center gap-8">
                     <div className="text-right">
                       <div className="text-xs font-bold text-blue-400">{api.latency}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Latency</div>
+                      <div className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">Latency</div>
                     </div>
                     <div className="text-right">
                       <div className="text-xs font-bold text-green-400">{api.uptime}</div>
@@ -142,7 +142,7 @@ export function Admin() {
                   <button className="px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-500 text-xs font-bold hover:bg-yellow-500/30 transition-all">
                     Manual Audit
                   </button>
-                  <button className="px-4 py-2 rounded-lg bg-white/5 text-foreground text-xs font-bold hover:bg-white/10 transition-all">
+                  <button className="px-4 py-2 rounded-lg bg-white/5 text-gray-200 text-xs font-bold hover:bg-white/10 transition-all">
                     Ignore for now
                   </button>
                 </div>
@@ -165,7 +165,7 @@ export function Admin() {
                 { segment: 'Consultants', count: 94, color: 'indigo' },
               ].map((s) => (
                 <div key={s.segment} className="p-4 rounded-xl bg-white/5 flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">{s.segment}</div>
+                  <div className="text-sm text-gray-300">{s.segment}</div>
                   <div className="text-sm font-bold text-white">{s.count}</div>
                 </div>
               ))}

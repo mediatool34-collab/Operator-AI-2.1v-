@@ -55,92 +55,22 @@ export class AdSpyEngine {
       };
 
       // Store in DB for historical tracking - saving as optimization log for now due to lack of a dedicated table in schema
-      try {
-        await db.insert(optimizationLogs).values({
-          id: `spy_${Date.now()}`,
-          workspaceId: 'system', // Represents system intel
-          action: 'AD_SPY_COMPLETED',
-          reason: `Scraped competitors for: ${searchQuery}`,
-          createdAt: new Date(),
-          afterState: spyData
-        });
-      } catch (dbError: any) {
-        console.warn(`[AdSpy] DB insertion skipped or failed: ${dbError.message}`);
-      }
+      await db.insert(optimizationLogs).values({
+        id: `spy_${Date.now()}`,
+        workspaceId: 'system', // Represents system intel
+        action: 'AD_SPY_COMPLETED',
+        reason: `Scraped competitors for: ${searchQuery}`,
+        createdAt: new Date(),
+        afterState: spyData
+      });
       
       console.log(`[AdSpy] ✅ Successfully scraped and analyzed ${ads.length} ads`);
       return spyData;
 
     } catch (error: any) {
-      console.error(`[AdSpy] ❌ Spy failed, activating smart simulated competitor spy fallback:`, error.message);
-      return this.generateSimulatedSpyData(searchQuery);
+      console.error(`[AdSpy] ❌ Spy failed:`, error.message);
+      throw error;
     }
-  }
-
-  /**
-   * Generates extremely engaging context-appropriate simulated competitor ads to provide seamless intelligence assets.
-   */
-  private generateSimulatedSpyData(searchQuery: string): AdSpyResult {
-    const isBeauty = searchQuery.toLowerCase().includes('beauty') || searchQuery.toLowerCase().includes('hair') || searchQuery.toLowerCase().includes('ipl') || searchQuery.toLowerCase().includes('laser') || searchQuery.toLowerCase().includes('ليزر') || searchQuery.toLowerCase().includes('إزالة') || searchQuery.toLowerCase().includes('بشرة');
-    
-    let simulatedAds = [];
-    if (isBeauty) {
-      simulatedAds = [
-        {
-          publisher_name: 'LaserSkin Care Co',
-          body_text: '✨ تخلصي من شعر الجسم الزائد نهائياً بأقوى عيادة ليزر منزلية! جهاز ليزر ملاي المطور بخاصية التبريد لتوفير أقصى حماية للبشرة من التهيج. شحن كامل ومجاني للخليج ومصر لـ 500ألف نبضة تدوم وتكفي لـ 10 سنوات!',
-          hooks: ['المقارنة مع صالونات التجميل', 'حل مشكلة الألم والالتهاب'],
-          angles: ['الراحة والخصوصية', 'توفير التكلفة المالية'],
-          active_date: new Date().toLocaleDateString()
-        },
-        {
-          publisher_name: 'SmoothSkin Global',
-          body_text: 'Say goodbye to expensive beauty salons and painful threading appointments! Our premium IPL cooling device allows you to achieve Salon-grade smooth skin at home. Enjoy flawless results in just 4 weeks.',
-          hooks: ['Time and cost efficiency', 'Skin health optimization'],
-          angles: ['High authority quality', 'Social proof guarantee'],
-          active_date: new Date().toLocaleDateString()
-        },
-        {
-          publisher_name: 'Sophia Luxury Beauty',
-          body_text: 'قولي وداعاً للتعب وجلسات العيادات الطويلة والمكلفة! روتين العناية المتكامل مع كينسي بيوتي وجهاز الليزر البارد IPL بضمان ذهبي لاسترجاع الأموال مع الشحن السريع المجاني.',
-          hooks: ['Direct financial savings', 'Ease-of-use focus'],
-          angles: ['Strong risk reversal', 'High quality design overview'],
-          active_date: new Date().toLocaleDateString()
-        }
-      ];
-    } else {
-      simulatedAds = [
-        {
-          publisher_name: 'Premium Essentials',
-          body_text: 'Upgrade your daily life with our new smart collection! Fast standard shipping is fully included, with a golden 2-year warranty and a modern premium design that stands out.',
-          hooks: ['Design elegance', 'Universal utility hook'],
-          angles: ['Exclusive limited offer', 'Reliable customer service'],
-          active_date: new Date().toLocaleDateString()
-        },
-        {
-          publisher_name: 'Elegant Tech Hub',
-          body_text: 'أفضل العروض الحصرية على الأجهزة الذكية وملحقات الهواتف الأكثر طلباً لهذا العام. توصيل مجاني سريع وضمان استبدال حقيقي.',
-          hooks: ['Urgency based offer', 'Technical compliance'],
-          angles: ['Unbeatable lower price', 'Excellent trust rating'],
-          active_date: new Date().toLocaleDateString()
-        }
-      ];
-    }
-
-    return {
-      query: searchQuery,
-      platform: 'meta',
-      ads: simulatedAds,
-      trends: isBeauty ? [
-        'Trend: Rising popularity of localized Arabic UGC testimonial video ads',
-        'Trend: Prominent display of "Ice cooling tech" and "Lifetime flashes warranty" confidence factors',
-        'Trend: Direct comparison angles highlighting salon treatment cost vs. device pricing'
-      ] : [
-        'Trend: General focus on convenience & express cash on delivery options',
-        'Trend: Direct satisfaction guarantees to lower high-churn transaction risks'
-      ],
-      scraped_at: new Date().toISOString()
-    };
   }
 
   /**

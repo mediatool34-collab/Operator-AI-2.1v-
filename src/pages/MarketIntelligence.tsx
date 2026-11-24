@@ -16,7 +16,6 @@ import { useAuth } from '../lib/auth';
 import { useAiSettings } from '../hooks/useAiSettings';
 import { cn } from '../lib/utils';
 import { analyzeWithGemini } from '../lib/gemini';
-import { CRO_AND_AOV_INTELLIGENCE_DIRECTIVE } from '../lib/operatorDirectives';
 
 interface IntelligenceReport {
   url: string;
@@ -178,8 +177,6 @@ export function MarketIntelligence() {
         ${contextData.scrapeContent}
         ${contextData.semrush ? 'VERIFIED DATA (SEMrush): ' + JSON.stringify(contextData.semrush) : 'NO SEMRUSH DATA - USE PROBABILISTIC ESTIMATION'}
 
-        ${CRO_AND_AOV_INTELLIGENCE_DIRECTIVE}
-
         REQUIRED SCHEMA (Return ONLY valid JSON):
         {
           "visualMetrics": { "marketResonance": number, "technicalHealth": number, "competitivePressure": number, "growthPotential": number, "riskEscalation": number },
@@ -260,11 +257,6 @@ export function MarketIntelligence() {
           })
         });
         
-        const contentType = response.headers.get('content-type');
-        if (!response.ok || !contentType || !contentType.includes('application/json')) {
-           const errText = await response.text();
-           throw new Error(`Server returned ${response.status}: ${errText.slice(0, 100)}`);
-        }
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         aiResult = data.result;
@@ -345,13 +337,13 @@ export function MarketIntelligence() {
       <div className="w-80 border-r border-white/5 bg-[#080B12] p-6 hidden lg:block overflow-y-auto">
         <div className="flex items-center gap-2 mb-8 px-2">
           <BookOpen className="w-5 h-5 text-indigo-500" />
-          <h3 className="text-sm font-black text-foreground uppercase tracking-tighter">Recent Intelligence</h3>
+          <h3 className="text-sm font-black text-white uppercase tracking-tighter">Recent Intelligence</h3>
         </div>
         
         <div className="space-y-3">
           {reports.length === 0 ? (
             <div className="p-4 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center">
-              <p className="text-[10px] text-muted-foreground font-bold uppercase">No audits generated yet</p>
+              <p className="text-[10px] text-gray-600 font-bold uppercase">No audits generated yet</p>
             </div>
           ) : (
             reports.map((r) => (
@@ -371,7 +363,7 @@ export function MarketIntelligence() {
                   </div>
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
-                <div className="text-xs font-bold text-muted-foreground truncate">
+                <div className="text-xs font-bold text-gray-300 truncate">
                   Digital Audit Report
                 </div>
               </button>
@@ -392,7 +384,7 @@ export function MarketIntelligence() {
                 <h1 className="text-6xl font-black text-white mb-4 tracking-tighter">
                   Market <span className="text-indigo-500">Intel</span>
                 </h1>
-                <p className="text-muted-foreground text-lg font-medium max-w-2xl leading-relaxed mt-6">
+                <p className="text-gray-500 text-lg font-medium max-w-2xl leading-relaxed mt-6">
                   Advanced digital reconnaissance engine. Our proprietary algorithms audit infrastructure, 
                   content architecture, and competitive intelligence to construct your business scale roadmap.
                 </p>
@@ -594,7 +586,7 @@ function OverviewTab({ report }: { report: IntelligenceReport }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
            <div className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Audit Objective</div>
-           <p className="text-sm text-muted-foreground font-medium leading-relaxed">{intro.objective || "Comprehensive cross-channel digital infrastructure analysis."}</p>
+           <p className="text-sm text-gray-400 font-medium leading-relaxed">{intro.objective || "Comprehensive cross-channel digital infrastructure analysis."}</p>
         </div>
         <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3 text-indigo-100">
            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Strategic Goal</div>
@@ -1207,11 +1199,11 @@ function SEOAuditTab({ report }: { report: IntelligenceReport }) {
 
            <div className="p-8 rounded-[2.5rem] bg-indigo-500/[0.02] border border-white/5 space-y-4">
               <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <Gauge className="w-4 h-4 text-primary" />
+                <Gauge className="w-4 h-4 text-brand-accent" />
                 Speed & Mobile Intelligence
               </h3>
               <div className="grid grid-cols-1 gap-4">
-                 <div className="p-5 rounded-2xl bg-primary/5 border border-brand-accent/10 space-y-2">
+                 <div className="p-5 rounded-2xl bg-brand-accent/5 border border-brand-accent/10 space-y-2">
                     <span className="text-[9px] font-black text-brand-accent uppercase tracking-widest">Mobile Responsiveness</span>
                     <p className="text-[11px] text-gray-300 leading-relaxed font-bold italic">
                        {seo.technicalSignals?.mobileResponsiveness || "Optimizing for mobile viewports..."}

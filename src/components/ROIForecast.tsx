@@ -1,122 +1,98 @@
 import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, AlertCircle } from 'lucide-react';
+import { TrendingUp, Sparkles, ArrowUpRight, ArrowDownRight, DollarSign } from 'lucide-react';
+import { cn } from '../lib/utils';
 
-interface ForecastData {
-  date: string;
-  historicalRoas?: number;
-  projectedRoas?: number;
-  spend: number;
+interface ROIForecastProps {
+  data?: Array<{ name: string; spend: number; roas: number }>;
+  spendTrend?: number;
 }
 
-export function ROIForecast({ data, spendTrend = 0 }: { data: any[], spendTrend?: number }) {
-  // Generate predictive data based on historical
-  const forecastData: ForecastData[] = [];
-  
-  if (!data || data.length === 0) return null;
+export function ROIForecast({ data = [], spendTrend }: ROIForecastProps) {
+  const totalPeriodSpend = data.reduce((acc, d) => acc + (d.spend || 0), 0);
+  const validRoasPoints = data.filter(d => (d.roas || 0) > 0);
+  const avgRoas =
+    validRoasPoints.length > 0
+      ? validRoasPoints.reduce((acc, d) => acc + d.roas, 0) / validRoasPoints.length
+      : 0;
 
-  // Last 7 days historical
-  data.forEach((d, i) => {
-    forecastData.push({
-      date: d.name || `Day ${i+1}`,
-      historicalRoas: d.roas,
-      spend: d.spend
-    });
-  });
-
-  const lastHistorical = forecastData[forecastData.length - 1];
-  const avgRoas = forecastData.reduce((acc, curr) => acc + (curr.historicalRoas || 0), 0) / forecastData.length;
-  
-  // Predict next 3 days
-  let currentRoas = lastHistorical.historicalRoas || avgRoas;
-  let currentSpend = lastHistorical.spend || 100;
-
-  for (let i = 1; i <= 3; i++) {
-    // Add some noise and trend
-    const noise = (Math.sin(i * 13) * 0.05) + 0.05; // deterministic noise between 0 and 0.1
-    const trendFactor = 1 + (spendTrend / 100);
-    currentRoas = currentRoas * (0.95 + noise) * (trendFactor > 1 ? 1.02 : 0.98); // Slightly better if spend trend is up
-    currentSpend = currentSpend * trendFactor;
-
-    forecastData.push({
-      date: `+${i}d`,
-      projectedRoas: Number(currentRoas.toFixed(2)),
-      spend: Number(currentSpend.toFixed(2)),
-      historicalRoas: i === 1 ? lastHistorical.historicalRoas : undefined // Connect the line
-    });
-  }
-
-  // Ensure line connection between historical and projected
-  const connectionIndex = forecastData.findIndex(d => d.projectedRoas !== undefined);
-  if (connectionIndex > 0) {
-    forecastData[connectionIndex].projectedRoas = forecastData[connectionIndex-1].historicalRoas;
-  }
+  const trendFactor = spendTrend !== undefined ? 1 + Math.max(-0.25, Math.min(0.35, spendTrend / 100)) : 1.08;
+  const projected30dSpend = totalPeriodSpend > 0 ? totalPeriodSpend * (30 / 7) * 0.25 * trendFactor : 0;
+  const projectedRoas = avgRoas > 0 ? avgRoas * (spendTrend && spendTrend > 0 ? 1.05 : 1.02) : 0;
+  const projectedRevenue = projected30dSpend * projectedRoas;
+  const breakEvenProgress = projectedRoas > 0 ? Math.min(100, Math.round((projectedRoas / 2.5) * 100)) : 0;
 
   return (
-    <div className="glass-panel p-6 rounded-2xl flex flex-col h-full bg-gradient-to-b from-[#111827]/80 to-[#1e293b]/80 border-indigo-500/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-indigo-400" />
-          ROI Forecast
-        </h3>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md border border-indigo-500/20">7d History + 3d Projection</span>
-      </div>
-      
-      <p className="text-xs text-muted-foreground mb-6 italic">
-        Predictive modeling based on current daily budget fluctuations and historical conversion velocity.
-      </p>
-
-      <div className="flex-1 min-h-[200px] w-full mt-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={forecastData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorHistorical" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
-              </linearGradient>
-              <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#34d399" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-            <XAxis dataKey="date" stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={false} />
-            <YAxis stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-              itemStyle={{ color: '#e2e8f0' }}
-            />
-            <Area 
-              type="monotone" 
-              dataKey="historicalRoas" 
-              stroke="#818cf8" 
-              strokeWidth={2}
-              fillOpacity={1} 
-              fill="url(#colorHistorical)" 
-              name="Historical ROAS"
-              activeDot={{ r: 6, fill: '#818cf8', stroke: '#0f172a', strokeWidth: 2 }}
-            />
-            <Area 
-              type="monotone" 
-              dataKey="projectedRoas" 
-              stroke="#34d399" 
-              strokeWidth={2}
-              strokeDasharray="4 4"
-              fillOpacity={1} 
-              fill="url(#colorProjected)" 
-              name="Projected ROAS"
-              activeDot={{ r: 6, fill: '#34d399', stroke: '#0f172a', strokeWidth: 2 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+    <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between gap-4 border border-white/10">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <h3 className="text-xs font-bold text-gray-300 uppercase tracking-widest">ROI Forecast (30d)</h3>
+        </div>
+        {spendTrend !== undefined && (
+          <span
+            className={cn(
+              'text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 border',
+              spendTrend >= 0
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+            )}
+          >
+            {spendTrend >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {spendTrend >= 0 ? '+' : ''}
+            {spendTrend}%
+          </span>
+        )}
       </div>
 
-      <div className="mt-4 flex items-center gap-2 p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
-         <AlertCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-         <p className="text-[11px] text-muted-foreground leading-tight">
-          Projection indicates a <span className="text-gray-200 font-bold">{lastHistorical.historicalRoas && currentRoas > lastHistorical.historicalRoas ? 'positive' : 'negative'} trajectory</span>.  Ensure net margins support sustained spend increases.
-         </p>
-      </div>
+      {totalPeriodSpend <= 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-6 text-gray-500 text-xs">
+          <DollarSign className="w-7 h-7 opacity-25 mb-2" />
+          <span>Insufficient spend trajectory for 30-day ROI projection.</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="p-3 rounded-xl bg-[#0B0F19]/80 border border-white/5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">Est. 30d Spend</span>
+              <span className="text-base font-black text-white tabular-nums">
+                ${projected30dSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-[#0B0F19]/80 border border-white/5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">Est. Revenue</span>
+              <span className="text-base font-black text-emerald-400 tabular-nums">
+                {projectedRevenue > 0
+                  ? `$${projectedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                  : 'Lead-Gen Mode'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#0B0F19]/80 border border-white/5 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400 flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
+                Projected ROAS
+              </span>
+              <span className="font-black text-white">
+                {projectedRoas > 0 ? `${projectedRoas.toFixed(2)}x` : 'N/A (Leads)'}
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(12, breakEvenProgress)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-gray-500">
+              <span>Break-even Benchmark: 2.50x</span>
+              <span>{projectedRoas >= 2.5 ? 'Scaling Ready' : projectedRoas > 0 ? 'Optimize Funnel' : 'Track Value'}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

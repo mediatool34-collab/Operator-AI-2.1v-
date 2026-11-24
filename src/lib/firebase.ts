@@ -20,7 +20,6 @@ export const signInWithGoogle = async () => {
 
 export const logOut = async () => {
     try {
-        localStorage.removeItem('operator_sandbox_user');
         await signOut(auth);
     } catch (error) {
         console.error("Error signing out", error);

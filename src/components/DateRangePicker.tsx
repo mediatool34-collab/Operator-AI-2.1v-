@@ -35,30 +35,36 @@ export function DateRangePicker() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-[#111827] border border-white/10 px-4 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-white/5 transition-colors"
+      <button
+        type="button"
+        onClick={() => setIsOpen(prev => !prev)}
+        className={`h-9 flex items-center gap-2 bg-[#0B0F19] border border-white/10 px-3 rounded-xl text-xs font-bold text-gray-200 hover:bg-white/5 transition-colors whitespace-nowrap ${
+          isOpen ? 'ring-2 ring-blue-500/50 border-blue-500/40' : ''
+        }`}
       >
-        <Calendar className="w-4 h-4 text-blue-400" />
-        {currentLabel}
-        <ChevronDown className="w-4 h-4" />
+        <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+        <span>{currentLabel}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-400' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-[#0B0F19] border border-white/10 rounded-xl shadow-xl z-50 py-2 backdrop-blur-md">
-          <div className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        <div className="absolute left-0 mt-2 w-52 bg-[#0B0F19] border border-white/15 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[100] py-2">
+          <div className="px-4 py-1.5 text-[10px] font-black text-gray-500 uppercase tracking-wider border-b border-white/5">
             Date range presets
           </div>
-          <div className="max-h-64 overflow-y-auto custom-scrollbar">
+          <div className="max-h-64 overflow-y-auto custom-scrollbar py-1">
             {PRESETS.map((preset) => (
               <button
+                type="button"
                 key={preset.value}
                 onClick={() => {
                   setDatePreset(preset.value);
                   setIsOpen(false);
                 }}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-white/5 transition-colors ${
-                  datePreset === preset.value ? 'bg-blue-500/10 text-blue-400 font-medium border-l-2 border-blue-500' : 'text-muted-foreground'
+                className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-white/5 transition-colors ${
+                  datePreset === preset.value
+                    ? 'bg-blue-500/15 text-blue-400 font-bold border-l-2 border-blue-500'
+                    : 'text-gray-300'
                 }`}
               >
                 {preset.label}
